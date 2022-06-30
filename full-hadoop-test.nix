@@ -1,5 +1,5 @@
 { flake  ? builtins.getFlake (toString ./.)
-, pkgs ? flake.inputs.nixpkgs.legacyPackages.${builtins.currentSystem}
+, pkgs # ? flake.inputs.nixpkgs.legacyPackages.${builtins.currentSystem}
 , makeTest ? pkgs.callPackage (flake.inputs.nixpkgs + "/nixos/tests/make-test-python.nix")
 , package ? flake.defaultPackage.${builtins.currentSystem}
 }:
@@ -258,4 +258,8 @@ makeTest {
     assert "Estimated value of Pi is" in client.succeed("HADOOP_USER_NAME=hdfs yarn jar $(readlink $(which yarn) | sed -r 's~bin/yarn~lib/hadoop-*/share/hadoop/mapreduce/hadoop-mapreduce-examples-*.jar~g') pi 2 10")
     assert "SUCCEEDED" in client.succeed("yarn application -list -appStates FINISHED")
   '';
+}  {
+  inherit pkgs;
+  inherit (pkgs) system;
 }
+

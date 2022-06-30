@@ -3,7 +3,7 @@
 
   inputs = {
 		
-    nixpkgs.url = "nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/master";
     utils.url = "github:numtide/flake-utils";
   };
 
@@ -17,12 +17,14 @@
 					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
 					pkgs = legacyPackages;
 					flake = self;
+					package = defaultPackage;
 				};
 				
 				hadoop-tests = import ./full-hadoop-test.nix {
 					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
 					pkgs = legacyPackages;
 					flake = self;
+					package = defaultPackage;
 
 				};
 				
@@ -30,11 +32,14 @@
 					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
 					pkgs = legacyPackages;
 					flake = self;
+					package = defaultPackage;
 				};
+				
 				kerberos-integration-tests = import ./test-with-kerberos.nix {
 					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
 					pkgs = legacyPackages;
 					flake = self;
+					package = defaultPackage;
 				};
 			};
 			
