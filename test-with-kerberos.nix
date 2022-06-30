@@ -1,5 +1,5 @@
 { flake  ? builtins.getFlake (toString ./.)
-, pkgs # ? flake.inputs.nixpkgs.legacyPackages.${builtins.currentSystem}
+, pkgs ? flake.inputs.nixpkgs.legacyPackages.${builtins.currentSystem}
 , makeTest ? pkgs.callPackage (flake.inputs.nixpkgs + "/nixos/tests/make-test-python.nix")
 , package ? flake.defaultPackage.${builtins.currentSystem}
 }:
