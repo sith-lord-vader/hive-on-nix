@@ -18,7 +18,20 @@
 					pkgs = legacyPackages;
 					flake = self;
 				};
+				
+				hadoop-tests = import ./full-hadoop-test.nix {
+					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
+					pkgs = legacyPackages;
+					flake = self;
+
+				};
+				
 				hadoop-integration-tests = import ./test-with-hadoop.nix {
+					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
+					pkgs = legacyPackages;
+					flake = self;
+				};
+				kerberos-integration-tests = import ./test-with-kerberos.nix {
 					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
 					pkgs = legacyPackages;
 					flake = self;
