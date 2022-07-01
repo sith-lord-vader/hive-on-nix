@@ -118,7 +118,7 @@ hiveserver.succeed(
 "echo \"hello\" "
 )
 hiveserver.execute(
-"beeline -u jdbc:hive2://hiveserver:10000 -e \"SHOW TABLES\""
+"beeline -u jdbc:hive2://hiveserver:14000 -e \"SHOW TABLES\""
 )
   '';
 } {

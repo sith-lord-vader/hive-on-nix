@@ -12,7 +12,7 @@
 		(system: rec {
 			legacyPackages = import nixpkgs {inherit system;};
 			defaultPackage = legacyPackages.callPackage ./default.nix {};
-			packages = {
+			checks = {
 				standalone-tests = import ./test.nix {
 					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
 					pkgs = legacyPackages;
