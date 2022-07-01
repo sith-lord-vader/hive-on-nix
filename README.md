@@ -10,5 +10,9 @@ Current primary reason for existence of this repo is as a testing environment.
 
 
 ```sh
-nix build .#<testname>.driverInteractive
+nix build .\#checks.x86_64-linux.<testname>.driverInteractive 
+```
+or
+```
+nix-build ./<testname> -A driverInteractive
 ```
