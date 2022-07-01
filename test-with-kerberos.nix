@@ -11,6 +11,8 @@ makeTest {
   name = "hive";
 	nodes = {
 		namenode = {pkgs, ...}: {
+			imports = [flake.nixosModule];
+			services.hive.gatewayRole.enable = true;
       services.hadoop = {
         package = pkgs.hadoop;
         hdfs = {
@@ -19,7 +21,6 @@ makeTest {
             formatOnInit = true;
 						openFirewall = true;
           };
-          httpfs.enable = true;
         };
         coreSite = {
           "fs.defaultFS" = "hdfs://namenode:8020";
@@ -30,6 +31,9 @@ makeTest {
     };
 		
     datanode = {pkgs, ...}: {
+			imports = [flake.nixosModule];
+			services.hive.gatewayRole.enable = true;
+
       services.hadoop = {
         package = pkgs.hadoop;
         hdfs.datanode = {
@@ -45,6 +49,9 @@ makeTest {
     };
 
 		kerberos_master = {pkgs,config,...}: {
+			nix.extraOptions = ''
+experimental-features = nix-command flakes
+'';
 
 			krb5 = {
 				enable = true;
@@ -53,8 +60,8 @@ makeTest {
 					kdc = [ "kerberos-master" ];
 				};
 				libdefaults.default_realm = "YOG";
-			};
-			
+			};	
+		
 			services.kerberos_server = {
 				enable = true;
 				realms = {
@@ -73,15 +80,17 @@ ${builtins.readFile config.environment.etc."krb5kdc/kdc.conf".source}
 		
 		hiveserver = {...}: {
 			imports = [flake.nixosModule];
+			environment.systemPackages = with pkgs; [ tmux htop ];
+			nix.extraOptions = ''
+experimental-features = nix-command flakes
+'';
 			services.hiveserver.enable = true;
 			services.hadoop = {
 				package = pkgs.hadoop;
-				hdfs.httpfs.enable = true;			# FIXME: this is jank to get the hadoop config deployed.
 				coreSite = {
 					"fs.defaultFS" = "hdfs://namenode:8020";
 					"hadoop.proxyuser.httpfs.groups" = "*";
 					"hadoop.proxyuser.httpfs.hosts" = "*";
-
 				};
 			};
 		};
@@ -113,12 +122,11 @@ namenode.wait_for_open_port(14000)
 # assert "testfilecontents" in datanode.succeed("curl -f \"http://namenode:14000/webhdfs/v1/testfile?user.name=hdfs&op=OPEN\" 2>&1")
 
 hiveserver.wait_for_unit("hiveserver.service")
-hiveserver.wait_for_open_port(10000)
 hiveserver.succeed(
 "echo \"hello\" "
 )
 hiveserver.execute(
-"beeline -u jdbc:hive2://hiveserver:14000 -e \"SHOW TABLES\""
+"beeline -u jdbc:hive2://hiveserver:10000 -e \"SHOW TABLES\""
 )
   '';
 } {

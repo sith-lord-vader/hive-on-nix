@@ -1,5 +1,5 @@
 {stdenv, fetchurl, jdk, makeWrapper, hadoop
-, bash, coreutils, which
+, bash, coreutils, which, gawk, psutils
 , lib
 }:
 
@@ -22,11 +22,11 @@ stdenv.mkDerivation rec {
         mv * $out/
 
 				for n in $(find $out{,/hcatalog}/bin -type f ! -name "*.*"); do
-          makeWrapper "$n" "$out/bin/$(basename $n)"\
+          wrapProgram "$n" \
             --set-default JAVA_HOME "${jdk.home}" \
 						--set-default HIVE_HOME "$out" \
 						--set-default HADOOP_HOME "${hadoop}/lib/${hadoop.untarDir}" \
-            --prefix PATH : "${lib.makeBinPath [ bash coreutils which]}"
+            --prefix PATH : "${lib.makeBinPath [ bash coreutils which gawk psutils ]}"
 				done
 	'';
 }
