@@ -3,7 +3,7 @@
 
   inputs = {
 		
-    nixpkgs.url = "github:NixOS/nixpkgs/master";
+    nixpkgs.url = "/home/sahiti/work/nixpkgs";
     utils.url = "github:numtide/flake-utils";
   };
 
@@ -12,7 +12,7 @@
 		(system: rec {
 			legacyPackages = import nixpkgs {inherit system;};
 			defaultPackage = legacyPackages.callPackage ./default.nix {};
-			checks = {
+			packages = {
 				standalone-tests = import ./test.nix {
 					makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
 					pkgs = legacyPackages;
