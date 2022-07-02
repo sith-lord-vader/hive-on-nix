@@ -12,7 +12,7 @@ makeTest {
 	nodes = {
 		namenode = {pkgs, ...}: {
 			imports = [flake.nixosModule];
-			services.hive.gatewayRole.enable = true;
+			services.hiveserver.gatewayRole.enable = true;
       services.hadoop = {
         package = pkgs.hadoop;
         hdfs = {
@@ -32,7 +32,7 @@ makeTest {
 		
     datanode = {pkgs, ...}: {
 			imports = [flake.nixosModule];
-			services.hive.gatewayRole.enable = true;
+			services.hiveserver.gatewayRole.enable = true;
 
       services.hadoop = {
         package = pkgs.hadoop;
