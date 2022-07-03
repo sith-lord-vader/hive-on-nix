@@ -12,7 +12,7 @@ makeTest {
 	nodes = {
 		namenode = {pkgs, ...}: {
 			imports = [flake.nixosModule];
-			services.hiveserver.gatewayRole.enable = true;
+			services.hadoop.hiveserver.gatewayRole.enable = true;
       services.hadoop = {
         package = pkgs.hadoop;
         hdfs = {
@@ -32,7 +32,7 @@ makeTest {
 		
     datanode = {pkgs, ...}: {
 			imports = [flake.nixosModule];
-			services.hiveserver.gatewayRole.enable = true;
+			services.hadoop.hiveserver.gatewayRole.enable = true;
 
       services.hadoop = {
         package = pkgs.hadoop;
@@ -84,7 +84,35 @@ ${builtins.readFile config.environment.etc."krb5kdc/kdc.conf".source}
 			nix.extraOptions = ''
 experimental-features = nix-command flakes
 '';
-			services.hiveserver.enable = true;
+			services.hadoop.hiveserver = {
+				enable = true;
+				hiveSite = {
+					"javax.jdo.option.ConnectionURL" = "jdbc:mysql://localhost/hive?createDatabaseIfNotExist=true";
+					"javax.jdo.option.ConnectionDriverName" = "com.mysql.jdbc.Driver";
+					"javax.jdo.option.ConnectionUserName" = "hdfs";
+					"javax.jdo.option.ConnectionPassword" = "123456";
+
+				};
+			};
+
+			services.mysql = {
+				enable = true;
+				package = pkgs.mariadb;
+				# ensureUsers = [
+				# 	{
+				# 		name = "hdfs";
+				# 		ensurePermissions ={
+				# 			"*.*" = "ALL PRIVILEGES";
+				# 		};
+				# 	}
+				# ];
+
+				initialScript = pkgs.writeText "mysql-init" ''
+CREATE USER IF NOT EXISTS 'hdfs'@'localhost' IDENTIFIED BY '123456';
+GRANT ALL PRIVILEGES ON *.* TO 'hdfs'@'localhost';
+'';
+			};
+			
 			services.hadoop = {
 				package = pkgs.hadoop;
 				coreSite = {
@@ -97,7 +125,8 @@ experimental-features = nix-command flakes
 	};
 
   testScript = ''
-start_all()
+namenode.start()
+datanode.start()
 
 namenode.wait_for_unit("hdfs-namenode")
 namenode.wait_for_unit("network.target")
@@ -110,17 +139,13 @@ datanode.wait_for_open_port(9864)
 datanode.wait_for_open_port(9866)
 datanode.wait_for_open_port(9867)
 
+hiveserver.start()
+
 namenode.succeed("curl -f http://namenode:9870")
 datanode.succeed("curl -f http://datanode:9864")
 
-datanode.succeed("sudo -u hdfs hdfs dfsadmin -safemode wait")
-datanode.succeed("echo testfilecontents | sudo -u hdfs hdfs dfs -put - /testfile")
-assert "testfilecontents" in datanode.succeed("sudo -u hdfs hdfs dfs -cat /testfile")
 
-namenode.wait_for_unit("hdfs-httpfs")
-namenode.wait_for_open_port(14000)
-# assert "testfilecontents" in datanode.succeed("curl -f \"http://namenode:14000/webhdfs/v1/testfile?user.name=hdfs&op=OPEN\" 2>&1")
-
+hiveserver.wait_for_unit("mysql.service")
 hiveserver.wait_for_unit("hiveserver.service")
 hiveserver.succeed(
 "echo \"hello\" "

@@ -58,7 +58,8 @@
 							};
 							
 							hiveSite = mkOption {
-								default = {};
+								default = {
+								};
 								type = types.attrsOf types.anything;
 								example = literalExpression ''
         {
@@ -72,7 +73,6 @@
 							};
  							hiveSiteDefault = mkOption {
 								default = {
-									"javax.jdo.option.ConnectionURL" = "jdbc:derby:;databaseName=/var/run/hive/metastore_db;create=true";
 								};
 								type = types.attrsOf types.anything;
 								example = literalExpression ''
@@ -138,19 +138,22 @@ cp ${siteXml "hive-site.xml" (hiveSiteDefault // hiveSite)}/* $out/
 
 								systemd.services = {
 									hive-init = {
-										before = [ "hiveserver.service" ];
+										wantedBy = [ "multi-user.target" ];
 										path = [ pkgs.hadoop ];
+											script = with pkgs; ''
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir       /tmp || true
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir -p    /user/hive/warehouse || true
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chmod g+w   /tmp || true
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chmod g+w   /user/hive/warehouse || true
+
+${pkgs.coreutils}/bin/mkdir /var/run/hive || true
+${pkgs.coreutils}/bin/chown hdfs:hadoop /var/run/hive || true
+
+'';
 										serviceConfig = {
 
 											Type = "oneshot";
 											# The below are the instructions to initialize Hive resoruces given in https://cwiki.apache.org/confluence/display/Hive/GettingStarted#GettingStarted-RunningHiveServer2andBeeline.
-											ExecStart = with pkgs; ''
-hadoop fs -mkdir       /tmp
-hadoop fs -mkdir       /user/hive/warehouse
-hadoop fs -chmod g+w   /tmp
-hadoop fs -chmod g+w   /user/hive/warehouse
-'';
-											User = "hdfs";
 										};
 									};
 									
@@ -164,11 +167,9 @@ hadoop fs -chmod g+w   /user/hive/warehouse
 										path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
 										serviceConfig = {
 											ExecStart = ''
-											sudo -u hdfs ${self.defaultPackage.${config.nixpkgs.system}}/bin/hiveserver2
+											${self.defaultPackage.${config.nixpkgs.system}}/bin/hiveserver2
 						'';
-											ExecStartPre = ''
-mkdir /var/run/hive
-'';
+											User = "hdfs";
 										};
 									};
 								};
