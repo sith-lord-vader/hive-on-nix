@@ -22,10 +22,11 @@ let
     "fs.defaultFS" = "hdfs://ns1";
 		# # Kerberos
 		"hadoop.security.authentication" = "kerberos";
-		# "hadoop.security.authorization" = "true";
-		# "hadoop.rpc.protection" = "authentication";
+		"hadoop.security.authorization" = "true";
+		"hadoop.rpc.protection" = "authentication";
 		# "hadoop.security.auth_to_local" = config.environment.etc."krb5.conf".text; # uncomment only after we've figured out auth_to_local rewrite rule additions to krb5.conf
   };
+	
 	hdfsSite = {
     # HA Quorum Journal Manager configuration
     "dfs.nameservices" = "ns1";
@@ -91,7 +92,6 @@ makeTest {
         hdfs = {
           namenode = {
             enable = true;
-            formatOnInit = true;
 						openFirewall = true;
           };
         };
