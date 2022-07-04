@@ -56,6 +56,8 @@
 								default = false;
 								description = "enable hiveserver";
 							};
+
+							openFirewall = mkEnableOption "open firewall ports for hiveserver webUI and JDBC connection.";
 							
 							hiveSite = mkOption {
 								default = {
@@ -73,6 +75,7 @@
 							};
  							hiveSiteDefault = mkOption {
 								default = {
+									"hive.server2.enable.doAs" = "false";
 								};
 								type = types.attrsOf types.anything;
 								example = literalExpression ''
@@ -92,7 +95,7 @@
 						
 						config = mkMerge [
 
-							(mkIf config.services.hadoop.hiveserver.gatewayRole.enable {
+							(mkIf cfg.gatewayRole.enable {
 								users.users.hive = {
 									description = "hive user";
 									isSystemUser = true;
@@ -102,7 +105,7 @@
 							
 							(mkIf cfg.enable {
 								environment.systemPackages = [ self.defaultPackage.${config.nixpkgs.system} ];
-								networking.firewall.allowedTCPPorts = [10000 10001 10002 14000];
+								networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [10000 10001 10002 14000];
 
 								users.users.hive = {
 									description = "hive user";
@@ -141,13 +144,21 @@ cp ${siteXml "hive-site.xml" (hiveSiteDefault // hiveSite)}/* $out/
 										wantedBy = [ "multi-user.target" ];
 										path = [ pkgs.hadoop ];
 											script = with pkgs; ''
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir -p    /home/hive || true
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chown hive:hadoop    /home/hive || true
+
 ${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir       /tmp || true
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir -p    /user/hive/warehouse || true
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chown hdfs:hadoop   /tmp || true
 ${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chmod g+w   /tmp || true
+
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir -p    /user/hive || true
+${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chown hive:hadoop   /user/hive || true
+
+${pkgs.sudo}/bin/sudo -u hive hadoop fs -mkdir    /user/hive/warehouse || true
 ${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chmod g+w   /user/hive/warehouse || true
 
 ${pkgs.coreutils}/bin/mkdir /var/run/hive || true
-${pkgs.coreutils}/bin/chown hdfs:hadoop /var/run/hive || true
+${pkgs.coreutils}/bin/chown hive:hadoop /var/run/hive || true
 
 '';
 										serviceConfig = {
@@ -169,7 +180,7 @@ ${pkgs.coreutils}/bin/chown hdfs:hadoop /var/run/hive || true
 											ExecStart = ''
 											${self.defaultPackage.${config.nixpkgs.system}}/bin/hiveserver2
 						'';
-											User = "hdfs";
+											User = "hive";
 										};
 									};
 								};
