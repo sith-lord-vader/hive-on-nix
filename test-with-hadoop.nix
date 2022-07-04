@@ -8,7 +8,7 @@
 
 
 makeTest {
-  name = "hive";
+  name = "hive-with-hadoop";
 	nodes = {
 		namenode = {pkgs, ...}: {
 			imports = [flake.nixosModule];
