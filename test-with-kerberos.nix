@@ -7,6 +7,7 @@
 
 
 let
+	tmpFileRules = ["d /var/hadoop 0755 hdfs hadoop"];
 
 	krb5 = {
 		enable = true;
@@ -25,6 +26,8 @@ let
 		"hadoop.security.authorization" = "true";
 		"hadoop.rpc.protection" = "authentication";
 		# "hadoop.security.auth_to_local" = config.environment.etc."krb5.conf".text; # uncomment only after we've figured out auth_to_local rewrite rule additions to krb5.conf
+
+		"hadoop.tmp.dir" = "/var/hadoop";
   };
 	
 	hdfsSite = {
@@ -38,6 +41,8 @@ let
     "dfs.namenode.servicerpc-address.ns1.nn2" = "nn2:8022";
     "dfs.namenode.http-address.ns1.nn1" = "nn1:9870";
     "dfs.namenode.http-address.ns1.nn2" = "nn2:9870";
+    "dfs.namenode.https-address.ns1.nn1" = "nn1:9871";
+    "dfs.namenode.https-address.ns1.nn2" = "nn2:9871";
     # Automatic failover configuration
     "dfs.client.failover.proxy.provider.ns1" = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider";
     "dfs.ha.automatic-failover.enabled.ns1" = "true";
@@ -53,7 +58,11 @@ let
 		"dfs.journalnode.kerberos.principal" = "hdfs/_HOST@TEST.REALM";
 		"dfs.journalnode.keytab.file" = "/var/security/keytab/jn.service.keytab";
 
-		"dfs.datanode.data.dir.perm" = "700";
+		"fs.checkpoint.dir" = "/var/hadoop";
+		"dfs.name.dir" = "/var/hadoop";
+		"dfs.data.dir" = "/var/hadoop";
+		
+		# "dfs.datanode.data.dir.perm" = "700";
 		"dfs.datanode.kerberos.principal" = "hdfs/_HOST@TEST.REALM";
 		"dfs.datanode.keytab.file" = "/var/security/keytab/dn.service.keytab";
 
@@ -69,7 +78,20 @@ let
 
 		
 	};
-
+	jaasConf = service: princ:  pkgs.writeTextFile {
+		name = "jaas.conf";
+		text = ''
+Server {
+com.sun.security.auth.module.Krb5LoginModule required
+useKeyTab=true
+keyTab="/var/security/keytab/${service}.service.keytab"
+storeKey=true
+useTicketCache=false
+principal="${princ}@TEST.REALM";
+};
+'';
+	};
+	authFlag = service: princ: [ "-Djava.security.auth.login.config=${jaasConf service princ}" ];
 in
 
 makeTest {
@@ -78,7 +100,14 @@ makeTest {
 
 		zk = { ... }: {
 			inherit krb5;
-      services.zookeeper.enable = true;
+      services.zookeeper = {
+				enable = true;
+				# extraConf = ''
+				# authProvider.1=org.apache.zookeeper.auth.SASLAuthenticationProvider
+				# jaasLoginRenew=3600000
+				# '';
+				# extraCmdLineOptions = authFlag "zookeeper" "zookeeper/zk";
+			};
       networking.firewall.allowedTCPPorts = [ 2181 ];
     };
 
@@ -87,10 +116,12 @@ makeTest {
 			inherit krb5;
 			services.hadoop.hiveserver.gatewayRole.enable = true;
 
+			systemd.tmpfiles.rules = tmpFileRules;
       services.hadoop = {
 				inherit package coreSite hdfsSite;
         hdfs = {
           namenode = {
+						# extraFlags = authFlag "nn" "hdfs/nn1";
             enable = true;
 						openFirewall = true;
           };
@@ -104,12 +135,13 @@ makeTest {
 			inherit krb5;
 			services.hadoop.hiveserver.gatewayRole.enable = true;
 
+			systemd.tmpfiles.rules = tmpFileRules;
       services.hadoop = {
 				inherit package coreSite hdfsSite;
         hdfs = {
           namenode = {
+						# extraFlags = authFlag "nn" "hdfs/nn2";
             enable = true;
-            formatOnInit = true;
 						openFirewall = true;
           };
         };
@@ -119,9 +151,12 @@ makeTest {
 		
     jn1 = { ... }: {
 			inherit krb5;
-      services.hadoop = {
+
+      systemd.tmpfiles.rules = tmpFileRules;
+			services.hadoop = {
         inherit package coreSite hdfsSite;
         hdfs.journalnode = {
+					# extraFlags = authFlag "jn" "hdfs/jn1";
           enable = true;
           openFirewall = true;
         };
@@ -131,10 +166,13 @@ makeTest {
 		dn1 = {pkgs, ...}: {
 			imports = [flake.nixosModule];
 			inherit krb5;
+
+			systemd.tmpfiles.rules = tmpFileRules;
       services.hadoop = {
 				inherit package coreSite hdfsSite;
 				hiveserver.gatewayRole.enable = true;
         hdfs.datanode = {
+					# extraFlags = authFlag "dn" "hdfs/dn1";
 					enable = true;
 					openFirewall = true;
 				};
@@ -207,14 +245,6 @@ GRANT ALL PRIVILEGES ON *.* TO 'hive'@'localhost';
   testScript = ''
 
 kerb.start()
-zk.start()
-nn1.start()
-nn2.start()
-jn1.start()
-dn1.start()
-hiveserver.start()
-
-
 kerb.succeed("kdb5_util create -r \"TEST.REALM\" -P qwe -s")
 kerb.systemctl("restart kadmind.service kdc.service")
 kerb.wait_for_unit("kadmind.service")
@@ -226,71 +256,70 @@ kerb.succeed("kadmin.local -q \"addprinc -pw abc hdfs/dn1\"")
 kerb.succeed("kadmin.local -q \"addprinc -pw abc hiveserver\"")
 
 
+zk.start()
+nn1.start()
+jn1.start()
+# hiveserver.start()
+
 kerb.wait_for_unit("network.target")
 zk.wait_for_unit("network.target")
 jn1.wait_for_unit("network.target")
 nn1.wait_for_unit("network.target")
-dn1.wait_for_unit("network.target")
-hiveserver.wait_for_unit("network.target")
 
-
-zk.succeed("mkdir -p /var/security/keytab/")
-
-zk.succeed("kadmin -p zookeeper/zk -w \"abc\" -q \"ktadd -k /var/security/keytab/zk.service.keytab zookeeper/zk\"")
-zk.succeed("chown zookeeper:zookeeper /var/security/keytab/zk.service.keytab")
 
 nn1.succeed("mkdir -p /var/security/keytab/")
 nn1.succeed("kadmin -p hdfs/nn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/nn.service.keytab hdfs/nn1\"")
 nn1.succeed("chown hdfs /var/security/keytab/nn.service.keytab")
 nn1.succeed("chgrp hadoop /var/security/keytab/nn.service.keytab")
 
-nn2.succeed("mkdir -p /var/security/keytab/")
-nn2.succeed("kadmin -p hdfs/nn2 -w \"abc\" -q \"ktadd -k /var/security/keytab/nn.service.keytab hdfs/nn2\"")
-nn2.succeed("chown hdfs /var/security/keytab/nn.service.keytab")
-nn2.succeed("chgrp hadoop /var/security/keytab/nn.service.keytab")
+zk.succeed("mkdir -p /var/security/keytab/")
+zk.succeed("kadmin -p zookeeper/zk -w \"abc\" -q \"ktadd -k /var/security/keytab/zookeeper.service.keytab zookeeper/zk\"")
+zk.succeed("chown zookeeper:zookeeper /var/security/keytab/zookeeper.service.keytab")
 
 jn1.succeed("mkdir -p /var/security/keytab/")
 jn1.succeed("kadmin -p hdfs/jn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/jn.service.keytab hdfs/jn1\"")
 jn1.succeed("chown hdfs /var/security/keytab/jn.service.keytab")
 jn1.succeed("chgrp hadoop /var/security/keytab/jn.service.keytab")
 
-dn1.succeed("mkdir -p /var/security/keytab/")
-dn1.succeed("kadmin -p hdfs/dn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/dn.service.keytab hdfs/dn1\"")
-dn1.succeed("chown hdfs /var/security/keytab/dn.service.keytab")
-dn1.succeed("chgrp hadoop /var/security/keytab/dn.service.keytab")
-
-hiveserver.succeed("mkdir -p /var/security/keytab/")
-hiveserver.succeed("kadmin -p hiveserver -w \"abc\" -q \"ktadd -k /var/security/keytab/hiveserver.service.keytab hiveserver\"")
-hiveserver.succeed("chown hive /var/security/keytab/hiveserver.service.keytab")
-hiveserver.succeed("chgrp hadoop /var/security/keytab/hiveserver.service.keytab")
-
 zk.wait_for_unit("zookeeper")
 zk.wait_for_unit("zookeeper")
 
 zk.wait_for_open_port(2181)
-jn1.wait_for_open_port(8480)
+jn1.wait_for_open_port(8481)
 jn1.wait_for_open_port(8485)
 
 # Namenodes must be stopped before initializing the cluster
 nn1.succeed("systemctl stop hdfs-namenode")
-nn2.succeed("systemctl stop hdfs-namenode")
 nn1.succeed("systemctl stop hdfs-zkfc")
-nn2.succeed("systemctl stop hdfs-zkfc")
 
 # Initialize zookeeper for failover controller
-nn1.succeed("sudo -u hdfs hdfs zkfc -formatZK 2>&1 | systemd-cat")
+nn1.succeed("kinit -k -t /var/security/keytab/nn.service.keytab hdfs/nn1")
+nn1.succeed("hdfs zkfc -formatZK 2>&1 | systemd-cat")
 
 # Format NN1 and start it
-nn1.succeed("sudo -u hdfs hadoop namenode -format 2>&1 | systemd-cat")
-nn1.succeed("systemctl start hdfs-namenode")
-nn1.wait_for_open_port(9870)
+nn1.succeed("hadoop namenode -format 2>&1 | systemd-cat")
+
+nn1.wait_for_unit("hdfs-namenode.service")
+nn1.wait_for_open_port(9871)
 nn1.wait_for_open_port(8022)
 nn1.wait_for_open_port(8020)
 
+
+nn2.start()
+nn2.succeed("systemctl stop hdfs-zkfc")
+nn2.succeed("systemctl stop hdfs-namenode")
+
+nn2.succeed("mkdir -p /var/security/keytab/")
+nn2.succeed("kadmin -p hdfs/nn2 -w \"abc\" -q \"ktadd -k /var/security/keytab/nn.service.keytab hdfs/nn2\"")
+nn2.succeed("chown hdfs /var/security/keytab/nn.service.keytab")
+nn2.succeed("chgrp hadoop /var/security/keytab/nn.service.keytab")
+
+
 # Bootstrap NN2 from NN1 and start it
-nn2.succeed("sudo -u hdfs hdfs namenode -bootstrapStandby 2>&1 | systemd-cat")
+nn2.succeed("kinit -k -t /var/security/keytab/nn.service.keytab hdfs/nn2")
+nn2.succeed("hdfs namenode -bootstrapStandby 2>&1 | systemd-cat")
 nn2.succeed("systemctl start hdfs-namenode")
-nn2.wait_for_open_port(9870)
+nn2.wait_for_open_port(9871)
 nn2.wait_for_open_port(8022)
 nn2.wait_for_open_port(8020)
 nn1.succeed("netstat -tulpne | systemd-cat")
@@ -299,24 +328,26 @@ nn1.succeed("netstat -tulpne | systemd-cat")
 nn1.succeed("systemctl start hdfs-zkfc")
 nn2.succeed("systemctl start hdfs-zkfc")
 
-# DN should have started by now, but confirm anyway
+# DN 
+dn1.start()
+dn1.wait_for_unit("network.target")
+dn1.succeed("mkdir -p /var/security/keytab/")
+dn1.succeed("kadmin -p hdfs/dn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/dn.service.keytab hdfs/dn1\"")
+dn1.succeed("chown hdfs /var/security/keytab/dn.service.keytab")
+dn1.succeed("chgrp hadoop /var/security/keytab/dn.service.keytab")
+
 dn1.wait_for_unit("hdfs-datanode")
 dn1.succeed("netstat -tulpne | systemd-cat")
 
-
-# Print states of namenodes
-hiveserver.succeed("sudo -u hdfs hdfs haadmin -getAllServiceState | systemd-cat")
-# Wait for cluster to exit safemode
-hiveserver.succeed("sudo -u hdfs hdfs dfsadmin -safemode wait")
-hiveserver.succeed("sudo -u hdfs hdfs haadmin -getAllServiceState | systemd-cat")
-# test R/W
-hiveserver.succeed("echo testfilecontents | sudo -u hdfs hdfs dfs -put - /testfile")
-assert "testfilecontents" in hiveserver.succeed("sudo -u hdfs hdfs dfs -cat /testfile")
-
-
-
-nn1.succeed("curl -f http://nn1:9870")
+nn1.succeed("curl -f https://nn1:9871")
 dn1.succeed("curl -f https://dn1:9865")
+
+
+# hiveserver.wait_for_unit("network.target")
+# hiveserver.succeed("mkdir -p /var/security/keytab/")
+# hiveserver.succeed("kadmin -p hiveserver -w \"abc\" -q \"ktadd -k /var/security/keytab/hiveserver.service.keytab hiveserver\"")
+# hiveserver.succeed("chown hive /var/security/keytab/hiveserver.service.keytab")
+# hiveserver.succeed("chgrp hadoop /var/security/keytab/hiveserver.service.keytab")
 
 
 hiveserver.wait_for_unit("mysql.service")
