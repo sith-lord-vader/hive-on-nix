@@ -28,15 +28,18 @@ let
 		"hadoop.security.authorization" = "true";
 		"hadoop.rpc.protection" = "authentication";
 		# "hadoop.security.auth_to_local" = config.environment.etc."krb5.conf".text; # uncomment only after we've figured out auth_to_local rewrite rule additions to krb5.conf
+		
+		"hadoop.tmp.dir" = "/var/hadoop";
+  };
+
+	sslServer = {
 		"ssl.server.truststore.location" = "/var/security/jssecacerts";
 		"ssl.server.truststore.password" = "changeit";
 		"ssl.server.truststore.type" = "jks";
-		"ssl.server.keystore.location" = "/var/security/keystore";
+		"ssl.server.keystore.location" = "/var/security/keystore.jks";
 		"ssl.server.keystore.password" = "changeit";
 		"ssl.server.keystore.type" = "jks";
-
-		"hadoop.tmp.dir" = "/var/hadoop";
-  };
+	};
 	
 	hdfsSite = {
     # HA Quorum Journal Manager configuration
@@ -136,7 +139,7 @@ makeTest {
 
 			systemd.tmpfiles.rules = tmpFileRules;
       services.hadoop = {
-				inherit package coreSite hdfsSite;
+				inherit package coreSite hdfsSite sslServer;
         hdfs = {
           namenode = {
 						# extraFlags = authFlag "nn" "hdfs/nn1";
@@ -159,7 +162,7 @@ makeTest {
 
 			systemd.tmpfiles.rules = tmpFileRules;
       services.hadoop = {
-				inherit package coreSite hdfsSite;
+				inherit package coreSite hdfsSite sslServer;
         hdfs = {
           namenode = {
 						# extraFlags = authFlag "nn" "hdfs/nn2";
@@ -180,7 +183,7 @@ makeTest {
 				"::1" = lib.mkForce [ ]; 
 			};
 	services.hadoop = {
-        inherit package coreSite hdfsSite;
+        inherit package coreSite hdfsSite sslServer;
         hdfs.journalnode = {
 					# extraFlags = authFlag "jn" "hdfs/jn1";
           enable = true;
@@ -199,7 +202,7 @@ makeTest {
 				"::1" = lib.mkForce [ ]; 
 			};
  services.hadoop = {
-				inherit package coreSite hdfsSite;
+				inherit package coreSite hdfsSite sslServer;
 				hiveserver.gatewayRole.enable = true;
         hdfs.datanode = {
 					# extraFlags = authFlag "dn" "hdfs/dn1";
@@ -253,7 +256,7 @@ ${builtins.readFile config.environment.etc."krb5kdc/kdc.conf".source}
 experimental-features = nix-command flakes
 '';
 			services.hadoop = {
-				inherit package coreSite hdfsSite;
+				inherit package coreSite hdfsSite sslServer;
 				
 				hiveserver = {
 					enable = true;
@@ -286,15 +289,6 @@ GRANT ALL PRIVILEGES ON *.* TO 'hive'@'localhost';
 start_all()
 
 
-jn1.copy_from_host(source="${./minica/jn1/keystore}",target="/var/keystore")
-jn1.succeed("chown hdfs /var/keystore")
-jn1.succeed("chgrp hadoop /var/keystore")
-dn1.copy_from_host(source="${./minica/dn1/keystore}",target="/var/keystore")
-dn1.succeed("chown hdfs /var/keystore")
-dn1.succeed("chgrp hadoop /var/keystore")
-hiveserver.copy_from_host(source="${./minica/hiveserver/keystore}",target="/var/keystore")
-hiveserver.succeed("chown hive /var/keystore")
-hiveserver.succeed("chgrp hadoop /var/keystore")
 
 kerb.succeed("kdb5_util create -r \"TEST.REALM\" -P qwe -s")
 kerb.systemctl("restart kadmind.service kdc.service")
@@ -315,31 +309,31 @@ dn1.wait_for_unit("network.target")
 
 
 nn1.succeed("kadmin -p hdfs/nn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/nn.service.keytab hdfs/nn1\"")
-nn1.copy_from_host(source="${./minica/nn1/keystore}",target="/var/security/keystore")
+nn1.copy_from_host(source="${./minica/nn1/keystore.jks}",target="/var/security/keystore.jks")
 nn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 nn1.succeed("chown -R hdfs /var/security")
 nn1.succeed("chgrp -R hadoop /var/security")
 
 nn2.succeed("kadmin -p hdfs/nn2 -w \"abc\" -q \"ktadd -k /var/security/keytab/nn.service.keytab hdfs/nn2\"")
-nn2.copy_from_host(source="${./minica/nn2/keystore}",target="/var/security/keystore")
+nn2.copy_from_host(source="${./minica/nn2/keystore.jks}",target="/var/security/keystore.jks")
 nn2.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 nn2.succeed("chown -R hdfs /var/security")
 nn2.succeed("chgrp -R hadoop /var/security")
 
 zk.succeed("kadmin -p zookeeper/zk -w \"abc\" -q \"ktadd -k /var/security/keytab/zookeeper.service.keytab zookeeper/zk\"")
-zk.copy_from_host(source="${./minica/zk/keystore}",target="/var/security/keystore")
+zk.copy_from_host(source="${./minica/zk/keystore.jks}",target="/var/security/keystore.jks")
 zk.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 zk.succeed("chown -R zookeeper /var/security")
 zk.succeed("chgrp -R zookeeper /var/security")
 
 jn1.succeed("kadmin -p hdfs/jn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/jn.service.keytab hdfs/jn1\"")
-jn1.copy_from_host(source="${./minica/jn1/keystore}",target="/var/security/keystore")
+jn1.copy_from_host(source="${./minica/jn1/keystore.jks}",target="/var/security/keystore.jks")
 jn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 jn1.succeed("chown -R hdfs /var/security")
 jn1.succeed("chgrp -R hadoop /var/security")
 
 dn1.succeed("kadmin -p hdfs/dn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/dn.service.keytab hdfs/dn1\"")
-dn1.copy_from_host(source="${./minica/dn1/keystore}",target="/var/security/keystore")
+dn1.copy_from_host(source="${./minica/dn1/keystore.jks}",target="/var/security/keystore.jks")
 dn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 dn1.succeed("chown -R hdfs /var/security")
 dn1.succeed("chgrp -R hadoop /var/security")

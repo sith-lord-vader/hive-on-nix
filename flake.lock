@@ -3,7 +3,7 @@
     "nixpkgs": {
       "locked": {
         "lastModified": 1656590927,
-        "narHash": "sha256-SLeUGnxdBlbF8F7NxB9fx1JQu01btcIQ2VicXu8klA4=",
+        "narHash": "sha256-nWNQPdZ4IvelzP0FDOWrwjExqWpM5iEgaMT/frKWd2M=",
         "shallow": true,
         "type": "git",
         "url": "file:///home/sahiti/work/nixpkgs"
