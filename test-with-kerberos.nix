@@ -120,10 +120,10 @@ let
     "yarn.resourcemanager.webapp.address" = "rm1:8088";
     "yarn.resourcemanager.webapp.https.address" = "rm1:8090";
 		"yarn.resourcemanager.principal" = "yarn/_HOST@TEST.REALM";
-		"yarn.resourcemanager.keytab.file" = "/var/security/keytab/rm.service.keytab";
+		"yarn.resourcemanager.keytab" = "/var/security/keytab/rm.service.keytab";
 
 		"yarn.nodemanager.principal" = "yarn/_HOST@TEST.REALM";
-		"yarn.nodemanager.keytab.file" = "/var/security/keytab/nm.service.keytab";
+		"yarn.nodemanager.keytab" = "/var/security/keytab/nm.service.keytab";
 		"yarn.nodemanager.linux-container-executor.path" = "${config.services.hadoop.package}/bin/container-executor";
 
 	};
@@ -217,11 +217,12 @@ makeTest {
 			inherit krb5;
 
       systemd.tmpfiles.rules = tmpFileRules;
-					networking.hosts = {
+			networking.hosts = {
 				"127.0.0.2" = lib.mkForce [ ];
 				"::1" = lib.mkForce [ ]; 
 			};
-	services.hadoop = {
+
+			services.hadoop = {
         inherit package coreSite hdfsSite sslServer sslClient;
         hdfs.journalnode = {
 					# extraFlags = authFlag "jn" "hdfs/jn1";
@@ -236,11 +237,12 @@ makeTest {
 			inherit krb5;
 
 			systemd.tmpfiles.rules = tmpFileRules;
-     			networking.hosts = {
+     	networking.hosts = {
 				"127.0.0.2" = lib.mkForce [ ];
 				"::1" = lib.mkForce [ ]; 
 			};
- services.hadoop = {
+
+			services.hadoop = {
 				inherit package coreSite hdfsSite sslServer sslClient;
 				hiveserver.gatewayRole.enable = true;
         hdfs.datanode = {
@@ -253,6 +255,15 @@ makeTest {
 
     # YARN cluster
     rm1 = { config,options, ... }: {
+			imports = [flake.nixosModule];
+			inherit krb5;
+
+			systemd.tmpfiles.rules = tmpFileRules;
+     	networking.hosts = {
+				"127.0.0.2" = lib.mkForce [ ];
+				"::1" = lib.mkForce [ ]; 
+			};
+
       services.hadoop = {
         inherit package coreSite hdfsSite sslServer sslClient;
 				yarnSite = yarnSite config;
@@ -265,6 +276,14 @@ makeTest {
     };
 
     nm1 = { config, options, ... }: {
+			imports = [flake.nixosModule];
+			inherit krb5;
+
+			systemd.tmpfiles.rules = tmpFileRules;
+     	networking.hosts = {
+				"127.0.0.2" = lib.mkForce [ ];
+				"::1" = lib.mkForce [ ]; 
+			};
       virtualisation.memorySize = 2048;
       services.hadoop = {
         inherit package coreSite hdfsSite sslServer sslClient;
@@ -316,7 +335,7 @@ ${builtins.readFile config.environment.etc."krb5kdc/kdc.conf".source}
 				"127.0.0.2" = lib.mkForce [ ];
 				"::1" = lib.mkForce [ ]; 
 			};
-	systemd.tmpfiles.rules = tmpFileRules;
+			systemd.tmpfiles.rules = tmpFileRules;
 			environment.systemPackages = with pkgs; [ tmux htop ];
 			nix.extraOptions = ''
 experimental-features = nix-command flakes
