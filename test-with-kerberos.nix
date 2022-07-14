@@ -30,17 +30,31 @@ let
 		# "hadoop.security.auth_to_local" = config.environment.etc."krb5.conf".text; # uncomment only after we've figured out auth_to_local rewrite rule additions to krb5.conf
 		
 		"hadoop.tmp.dir" = "/var/hadoop";
+
+		
+		# "hadoop.ssl.require.client.cert" = "false";
+		# "hadoop.ssl.hostname.verifier" = "DEFAULT";
+		# "hadoop.ssl.keystores.factory.class" = "org.apache.hadoop.security.ssl.FileBasedKeyStoresFactory";
   };
 
 	sslServer = {
-		"ssl.server.truststore.location" = "/var/security/jssecacerts";
+		"ssl.server.truststore.location" = "${./minica/jssecacerts}";
 		"ssl.server.truststore.password" = "changeit";
 		"ssl.server.truststore.type" = "jks";
 		"ssl.server.keystore.location" = "/var/security/keystore.jks";
 		"ssl.server.keystore.password" = "changeit";
 		"ssl.server.keystore.type" = "jks";
 	};
-	
+
+	sslClient = {
+		"ssl.client.truststore.location" = "${./minica/jssecacerts}";
+		"ssl.client.truststore.password" = "changeit";
+		"ssl.client.truststore.type" = "jks";
+		"ssl.client.keystore.location" = "/var/security/keystore.jks";
+		"ssl.client.keystore.password" = "changeit";
+		"ssl.client.keystore.type" = "jks";
+	};
+
 	hdfsSite = {
     # HA Quorum Journal Manager configuration
     "dfs.nameservices" = "ns1";
@@ -79,6 +93,8 @@ let
 
 		# SASL based secure datanode
 		"dfs.http.policy" = "HTTPS_ONLY";
+		# "dfs.client.https.need-auth" = "false";
+
 		"dfs.data.transfer.protection" = "authentication";
 
 
@@ -90,6 +106,29 @@ let
 
 		
 	};
+
+	yarnSite = config: {
+    "yarn.resourcemanager.zk-address" = "zk:2181";
+    "yarn.resourcemanager.ha.enabled" = "false";
+    # "yarn.resourcemanager.ha.rm-ids" = "rm1";
+    "yarn.resourcemanager.hostname" = "rm1";
+    # "yarn.resourcemanager.ha.automatic-failover.enabled" = "true";
+    # "yarn.resourcemanager.cluster-id" = "cluster1";
+    # yarn.resourcemanager.webapp.address needs to be defined even though yarn.resourcemanager.hostname is set. This shouldn't be necessary, but there's a bug in
+    # hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-web-proxy/src/main/java/org/apache/hadoop/yarn/server/webproxy/amfilter/AmFilterInitializer.java:70
+    # that causes AM containers to fail otherwise.
+    "yarn.resourcemanager.webapp.address" = "rm1:8088";
+    "yarn.resourcemanager.webapp.https.address" = "rm1:8090";
+		"yarn.resourcemanager.principal" = "yarn/_HOST@TEST.REALM";
+		"yarn.resourcemanager.keytab.file" = "/var/security/keytab/rm.service.keytab";
+
+		"yarn.nodemanager.principal" = "yarn/_HOST@TEST.REALM";
+		"yarn.nodemanager.keytab.file" = "/var/security/keytab/nm.service.keytab";
+		"yarn.nodemanager.linux-container-executor.path" = "${config.services.hadoop.package}/bin/container-executor";
+
+	};
+
+	
 	jaasConf = service: princ:  pkgs.writeTextFile {
 		name = "jaas.conf";
 		text = ''
@@ -139,7 +178,7 @@ makeTest {
 
 			systemd.tmpfiles.rules = tmpFileRules;
       services.hadoop = {
-				inherit package coreSite hdfsSite sslServer;
+				inherit package coreSite hdfsSite sslServer sslClient;
         hdfs = {
           namenode = {
 						# extraFlags = authFlag "nn" "hdfs/nn1";
@@ -162,7 +201,7 @@ makeTest {
 
 			systemd.tmpfiles.rules = tmpFileRules;
       services.hadoop = {
-				inherit package coreSite hdfsSite sslServer;
+				inherit package coreSite hdfsSite sslServer sslClient;
         hdfs = {
           namenode = {
 						# extraFlags = authFlag "nn" "hdfs/nn2";
@@ -183,7 +222,7 @@ makeTest {
 				"::1" = lib.mkForce [ ]; 
 			};
 	services.hadoop = {
-        inherit package coreSite hdfsSite sslServer;
+        inherit package coreSite hdfsSite sslServer sslClient;
         hdfs.journalnode = {
 					# extraFlags = authFlag "jn" "hdfs/jn1";
           enable = true;
@@ -202,7 +241,7 @@ makeTest {
 				"::1" = lib.mkForce [ ]; 
 			};
  services.hadoop = {
-				inherit package coreSite hdfsSite sslServer;
+				inherit package coreSite hdfsSite sslServer sslClient;
 				hiveserver.gatewayRole.enable = true;
         hdfs.datanode = {
 					# extraFlags = authFlag "dn" "hdfs/dn1";
@@ -212,6 +251,33 @@ makeTest {
       };
     };
 
+    # YARN cluster
+    rm1 = { config,options, ... }: {
+      services.hadoop = {
+        inherit package coreSite hdfsSite sslServer sslClient;
+				yarnSite = yarnSite config;
+        yarn.resourcemanager = {
+          enable = true;
+          openFirewall = true;
+        };
+      };
+			networking.firewall.allowedTCPPorts = [ 8044 ];
+    };
+
+    nm1 = { config, options, ... }: {
+      virtualisation.memorySize = 2048;
+      services.hadoop = {
+        inherit package coreSite hdfsSite sslServer sslClient;
+				yarnSite = yarnSite config;
+        yarn.nodemanager = {
+          enable = true;
+          openFirewall = true;
+        };
+      };
+			networking.firewall.allowedTCPPorts = [ 8044 ];
+    };
+
+		
 		kerb = {pkgs,config,...}: {
 			nix.extraOptions = ''
 experimental-features = nix-command flakes
@@ -256,7 +322,7 @@ ${builtins.readFile config.environment.etc."krb5kdc/kdc.conf".source}
 experimental-features = nix-command flakes
 '';
 			services.hadoop = {
-				inherit package coreSite hdfsSite sslServer;
+				inherit package coreSite hdfsSite sslServer sslClient;
 				
 				hiveserver = {
 					enable = true;
@@ -268,6 +334,13 @@ experimental-features = nix-command flakes
 						"javax.jdo.option.ConnectionUserName" = "hive";
 						"javax.jdo.option.ConnectionPassword" = "123456";
 
+						"hive.server2.authentication" = "KERBEROS";
+						"hive.server2.authentication.kerberos.principal" = "hive/hiveserver";
+						"hive.server2.authentication.kerberos.keytab" = "/var/security/keytab/hiveserver.service.keytab";
+
+						# "hive.server2.use.SSL" = "true";
+						# "hive.server2.keystore.path" = "/var/security/keystore.jks";
+						# "hive.server2.keystore.password" = "changeit";
 					};
 				};
 			};
@@ -298,7 +371,9 @@ kerb.succeed("kadmin.local -q \"addprinc -pw abc hdfs/nn1\"")
 kerb.succeed("kadmin.local -q \"addprinc -pw abc hdfs/nn2\"")
 kerb.succeed("kadmin.local -q \"addprinc -pw abc hdfs/jn1\"")
 kerb.succeed("kadmin.local -q \"addprinc -pw abc hdfs/dn1\"")
-kerb.succeed("kadmin.local -q \"addprinc -pw abc hiveserver\"")
+kerb.succeed("kadmin.local -q \"addprinc -pw abc yarn/rm1\"")
+kerb.succeed("kadmin.local -q \"addprinc -pw abc yarn/nm1\"")
+kerb.succeed("kadmin.local -q \"addprinc -pw abc hive/hiveserver\"")
 
 
 kerb.wait_for_unit("network.target")
@@ -310,33 +385,47 @@ dn1.wait_for_unit("network.target")
 
 nn1.succeed("kadmin -p hdfs/nn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/nn.service.keytab hdfs/nn1\"")
 nn1.copy_from_host(source="${./minica/nn1/keystore.jks}",target="/var/security/keystore.jks")
-nn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
+# nn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 nn1.succeed("chown -R hdfs /var/security")
 nn1.succeed("chgrp -R hadoop /var/security")
 
 nn2.succeed("kadmin -p hdfs/nn2 -w \"abc\" -q \"ktadd -k /var/security/keytab/nn.service.keytab hdfs/nn2\"")
 nn2.copy_from_host(source="${./minica/nn2/keystore.jks}",target="/var/security/keystore.jks")
-nn2.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
+# nn2.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 nn2.succeed("chown -R hdfs /var/security")
 nn2.succeed("chgrp -R hadoop /var/security")
 
 zk.succeed("kadmin -p zookeeper/zk -w \"abc\" -q \"ktadd -k /var/security/keytab/zookeeper.service.keytab zookeeper/zk\"")
 zk.copy_from_host(source="${./minica/zk/keystore.jks}",target="/var/security/keystore.jks")
-zk.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
+# zk.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 zk.succeed("chown -R zookeeper /var/security")
 zk.succeed("chgrp -R zookeeper /var/security")
 
 jn1.succeed("kadmin -p hdfs/jn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/jn.service.keytab hdfs/jn1\"")
 jn1.copy_from_host(source="${./minica/jn1/keystore.jks}",target="/var/security/keystore.jks")
-jn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
+# jn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 jn1.succeed("chown -R hdfs /var/security")
 jn1.succeed("chgrp -R hadoop /var/security")
 
 dn1.succeed("kadmin -p hdfs/dn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/dn.service.keytab hdfs/dn1\"")
 dn1.copy_from_host(source="${./minica/dn1/keystore.jks}",target="/var/security/keystore.jks")
-dn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
+# dn1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
 dn1.succeed("chown -R hdfs /var/security")
 dn1.succeed("chgrp -R hadoop /var/security")
+
+
+rm1.succeed("kadmin -p yarn/rm1 -w \"abc\" -q \"ktadd -k /var/security/keytab/rm.service.keytab yarn/rm1\"")
+rm1.copy_from_host(source="${./minica/rm1/keystore.jks}",target="/var/security/keystore.jks")
+# rm1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
+rm1.succeed("chown -R yarn /var/security")
+rm1.succeed("chgrp -R hadoop /var/security")
+
+nm1.succeed("kadmin -p yarn/nm1 -w \"abc\" -q \"ktadd -k /var/security/keytab/nm.service.keytab yarn/nm1\"")
+nm1.copy_from_host(source="${./minica/nm1/keystore.jks}",target="/var/security/keystore.jks")
+# nm1.copy_from_host(source="${./minica/jssecacerts}",target="/var/security/jssecacerts")
+nm1.succeed("chown -R yarn /var/security")
+nm1.succeed("chgrp -R hadoop /var/security")
+
 
 zk.wait_for_unit("zookeeper")
 zk.wait_for_unit("zookeeper")
@@ -371,8 +460,13 @@ nn1.wait_for_open_port(8020)
 
 # Bootstrap NN2 from NN1 and start it
 nn2.succeed("hdfs namenode -bootstrapStandby 2>&1 | systemd-cat")
+
+nn2.succeed("chown -R hdfs /var/hadoop")
+nn2.succeed("chgrp -R hadoop /var/hadoop")
+
+
 nn2.succeed("systemctl start hdfs-namenode")
-nn2.wait_for_open_port(9871)
+# nn2.wait_for_open_port(9871)
 nn2.wait_for_open_port(8022)
 nn2.wait_for_open_port(8020)
 nn1.succeed("netstat -tulpne | systemd-cat")
@@ -385,23 +479,58 @@ nn2.succeed("systemctl start hdfs-zkfc")
 dn1.wait_for_unit("hdfs-datanode")
 dn1.succeed("netstat -tulpne | systemd-cat")
 
-nn1.succeed("curl -f https://nn1:9871")
-dn1.succeed("curl -f https://dn1:9865")
+nn1.succeed("curl --cacert ${./minica/minica.pem} -f https://nn1:9871")
+dn1.succeed("curl --cacert ${./minica/minica.pem} -f https://dn1:9865")
+
+
+rm1.wait_for_unit("network.target")
+nm1.wait_for_unit("network.target")
+
+rm1.wait_for_unit("yarn-resourcemanager")
+rm1.wait_for_open_port(8088)
+
+nm1.wait_for_unit("yarn-nodemanager")
+nm1.wait_for_open_port(8042)
+nm1.wait_for_open_port(8040)
+nm1.wait_until_succeeds("yarn node -list | grep Nodes:1")
+nm1.succeed("sudo -u yarn yarn rmadmin -getAllServiceState | systemd-cat")
+nm1.succeed("sudo -u yarn yarn node -list | systemd-cat")
+
+
 
 
 hiveserver.wait_for_unit("network.target")
-hiveserver.succeed("kadmin -p hiveserver -w \"abc\" -q \"ktadd -k /var/security/keytab/hiveserver.service.keytab hiveserver\"")
+hiveserver.succeed("kadmin -p hive/hiveserver -w \"abc\" -q \"ktadd -k /var/security/keytab/hiveserver.service.keytab hive/hiveserver\"")
 hiveserver.succeed("chown hive /var/security/keytab/hiveserver.service.keytab")
 hiveserver.succeed("chgrp hadoop /var/security/keytab/hiveserver.service.keytab")
+hiveserver.copy_from_host(source="${./minica/hiveserver/keystore.jks}",target="/var/security/keystore.jks")
+
+
+nn2.succeed("""
+kinit -k -t /var/security/keytab/nn.service.keytab hdfs/nn2 && \
+hadoop fs -mkdir -p    /home/hive && \
+hadoop fs -chown hive:hadoop    /home/hive  && \
+hadoop fs -mkdir       /tmp  && \
+hadoop fs -chown hdfs:hadoop   /tmp &&  \
+hadoop fs -chmod g+w   /tmp &&  \
+hadoop fs -mkdir -p    /user/hive  && \
+hadoop fs -chown hive:hadoop   /user/hive &&  \
+hadoop fs -mkdir    /user/hive/warehouse  && \
+hadoop fs -chmod g+w   /user/hive/warehouse 
+""")
+
+
 
 
 hiveserver.wait_for_unit("mysql.service")
+hiveserver.succeed("schematool -dbType mysql -initSchema")
 hiveserver.succeed("systemctl restart hive-init")
 hiveserver.succeed("systemctl restart hiveserver")
 hiveserver.wait_for_open_port(10000)
-hiveserver.execute(
-"beeline -u jdbc:hive2://hiveserver:10000 -e \"SHOW TABLES;\""
-)
+hiveserver.succeed("""
+kinit -k -t /var/security/keytab/hiveserver.service.keytab hive/hiveserver && \
+beeline -u \"jdbc:hive2://hiveserver:10000/default;principal=hive/hiveserver@TEST.REALM\" -e \"SHOW TABLES;\"
+""")
   '';
 } {
   inherit pkgs;

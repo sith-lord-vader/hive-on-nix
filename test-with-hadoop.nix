@@ -118,6 +118,19 @@ hiveserver.start()
 namenode.succeed("curl -f http://namenode:9870")
 datanode.succeed("curl -f http://datanode:9864")
 
+
+namenode.succeed("""
+sudo -u hdfs hadoop fs -mkdir -p    /home/hive && \
+sudo -u hdfs hadoop fs -chown hive:hadoop    /home/hive  && \
+sudo -u hdfs hadoop fs -mkdir       /tmp  && \
+sudo -u hdfs hadoop fs -chown hdfs:hadoop   /tmp &&  \
+sudo -u hdfs hadoop fs -chmod g+w   /tmp &&  \
+sudo -u hdfs hadoop fs -mkdir -p    /user/hive  && \
+sudo -u hdfs hadoop fs -chown hive:hadoop   /user/hive &&  \
+sudo -u hdfs hadoop fs -mkdir    /user/hive/warehouse  && \
+sudo -u hdfs hadoop fs -chmod g+w   /user/hive/warehouse 
+""")
+
 hiveserver.execute("schematool -dbType mysql -initSchema")
 hiveserver.wait_for_unit("mysql.service")
 hiveserver.wait_for_unit("hiveserver.service")

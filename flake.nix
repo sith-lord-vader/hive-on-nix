@@ -142,20 +142,22 @@ cp ${siteXml "hive-site.xml" (hiveSiteDefault // hiveSite)}/* $out/
 								systemd.services = {
 									hive-init = {
 										wantedBy = [ "multi-user.target" ];
-										path = [ pkgs.hadoop ];
+										path = [ pkgs.hadoop config.krb5.kerberos ];
 											script = with pkgs; ''
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir -p    /home/hive || true
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chown hive:hadoop    /home/hive || true
+kinit -k -t /var/security/keytab/hiveserver.service.keytab hive/hiveserver
 
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir       /tmp || true
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chown hdfs:hadoop   /tmp || true
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chmod g+w   /tmp || true
+hadoop fs -mkdir -p    /home/hive || true
+hadoop fs -chown hive:hadoop    /home/hive || true
 
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -mkdir -p    /user/hive || true
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chown hive:hadoop   /user/hive || true
+hadoop fs -mkdir       /tmp || true
+hadoop fs -chown hdfs:hadoop   /tmp || true
+hadoop fs -chmod g+w   /tmp || true
 
-${pkgs.sudo}/bin/sudo -u hive hadoop fs -mkdir    /user/hive/warehouse || true
-${pkgs.sudo}/bin/sudo -u hdfs hadoop fs -chmod g+w   /user/hive/warehouse || true
+hadoop fs -mkdir -p    /user/hive || true
+hadoop fs -chown hive:hadoop   /user/hive || true
+
+hadoop fs -mkdir    /user/hive/warehouse || true
+hadoop fs -chmod g+w   /user/hive/warehouse || true
 
 ${pkgs.coreutils}/bin/mkdir /var/run/hive || true
 ${pkgs.coreutils}/bin/chown hive:hadoop /var/run/hive || true
@@ -175,11 +177,11 @@ ${pkgs.coreutils}/bin/chown hive:hadoop /var/run/hive || true
 												{
 													HADOOP_CONF_DIR = "/etc/hadoop-conf";
 												};				
+										script = ''
+											hiveserver2 --hiveconf hive.root.logger=INFO,console
+										'';
 										path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
 										serviceConfig = {
-											ExecStart = ''
-											${self.defaultPackage.${config.nixpkgs.system}}/bin/hiveserver2
-						'';
 											User = "hive";
 										};
 									};
