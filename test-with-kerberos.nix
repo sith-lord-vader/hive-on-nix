@@ -107,7 +107,7 @@ let
 		
 	};
 
-	yarnSite = config: {
+	yarnSite = {
     "yarn.resourcemanager.zk-address" = "zk:2181";
     "yarn.resourcemanager.ha.enabled" = "false";
     # "yarn.resourcemanager.ha.rm-ids" = "rm1";
@@ -124,8 +124,6 @@ let
 
 		"yarn.nodemanager.principal" = "yarn/_HOST@TEST.REALM";
 		"yarn.nodemanager.keytab" = "/var/security/keytab/nm.service.keytab";
-		"yarn.nodemanager.linux-container-executor.path" = "${config.services.hadoop.package}/bin/container-executor";
-
 	};
 
 	
@@ -258,36 +256,34 @@ makeTest {
 			imports = [flake.nixosModule];
 			inherit krb5;
 
-			systemd.tmpfiles.rules = tmpFileRules;
+			systemd.tmpfiles.rules =  ["d /var/security/keytab 0755 root users" "d /var/hadoop 0777 yarn hadoop"];
      	networking.hosts = {
 				"127.0.0.2" = lib.mkForce [ ];
 				"::1" = lib.mkForce [ ]; 
 			};
 
       services.hadoop = {
-        inherit package coreSite hdfsSite sslServer sslClient;
-				yarnSite = yarnSite config;
+        inherit package coreSite hdfsSite yarnSite sslServer sslClient;
         yarn.resourcemanager = {
           enable = true;
           openFirewall = true;
         };
       };
-			networking.firewall.allowedTCPPorts = [ 8044 ];
+			networking.firewall.allowedTCPPorts = [ 8090 ];
     };
 
     nm1 = { config, options, ... }: {
 			imports = [flake.nixosModule];
 			inherit krb5;
 
-			systemd.tmpfiles.rules = tmpFileRules;
+			systemd.tmpfiles.rules =  ["d /var/security/keytab 0755 root users" "d /var/hadoop 0777 yarn hadoop"];
      	networking.hosts = {
 				"127.0.0.2" = lib.mkForce [ ];
 				"::1" = lib.mkForce [ ]; 
 			};
       virtualisation.memorySize = 2048;
       services.hadoop = {
-        inherit package coreSite hdfsSite sslServer sslClient;
-				yarnSite = yarnSite config;
+        inherit package coreSite hdfsSite yarnSite sslServer sslClient;
         yarn.nodemanager = {
           enable = true;
           openFirewall = true;
@@ -341,8 +337,8 @@ ${builtins.readFile config.environment.etc."krb5kdc/kdc.conf".source}
 experimental-features = nix-command flakes
 '';
 			services.hadoop = {
-				inherit package coreSite hdfsSite sslServer sslClient;
-				
+				inherit package coreSite hdfsSite yarnSite sslServer sslClient;
+				gatewayRole.enable = true;
 				hiveserver = {
 					enable = true;
 					openFirewall = true;
@@ -506,14 +502,14 @@ rm1.wait_for_unit("network.target")
 nm1.wait_for_unit("network.target")
 
 rm1.wait_for_unit("yarn-resourcemanager")
-rm1.wait_for_open_port(8088)
+# rm1.wait_for_open_port(8088)
 
 nm1.wait_for_unit("yarn-nodemanager")
-nm1.wait_for_open_port(8042)
-nm1.wait_for_open_port(8040)
+# nm1.wait_for_open_port(8042)
+# nm1.wait_for_open_port(8040)
+nm1.succeed("kinit -k -t /var/security/keytab/nm.service.keytab yarn/nm1")
 nm1.wait_until_succeeds("yarn node -list | grep Nodes:1")
-nm1.succeed("sudo -u yarn yarn rmadmin -getAllServiceState | systemd-cat")
-nm1.succeed("sudo -u yarn yarn node -list | systemd-cat")
+nm1.succeed("yarn node -list | systemd-cat")
 
 
 
@@ -548,7 +544,7 @@ hiveserver.succeed("systemctl restart hiveserver")
 hiveserver.wait_for_open_port(10000)
 hiveserver.succeed("""
 kinit -k -t /var/security/keytab/hiveserver.service.keytab hive/hiveserver && \
-beeline -u \"jdbc:hive2://hiveserver:10000/default;principal=hive/hiveserver@TEST.REALM\" -e \"SHOW TABLES;\"
+beeline -u \"jdbc:hive2://hiveserver:10000/;principal=hive/hiveserver@TEST.REALM\" -e \"SHOW TABLES;\"
 """)
   '';
 } {
