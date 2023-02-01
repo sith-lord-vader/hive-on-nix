@@ -45,17 +45,16 @@ rec {
       untarDir = "${pname}-${version}";
     in
     ''
-              # mkdir -p $out/{share,bin}
-      				mkdir $out
-              mv * $out/
+      		mkdir $out
+          mv * $out/
 
-      				for n in $(find $out{,/hcatalog}/bin -type f ! -name "*.*"); do
-                wrapProgram "$n" \
-                  --set-default JAVA_HOME "${jdk.home}" \
-      						--set-default HIVE_HOME "$out" \
-      						--set-default HADOOP_HOME "${hadoop}/lib/${hadoop.untarDir}" \
-                  --prefix PATH : "${lib.makeBinPath [ bash coreutils which gawk psutils ]}"
-      	'';
+      		for n in $(find $out/bin -type f ! -name "*.*"); do
+            wrapProgram "$n" \
+              --set-default JAVA_HOME "${jdk.home}" \
+      				--set-default HIVE_HOME "$out" \
+      				--set-default HADOOP_HOME "${hadoop}/lib/${hadoop.untarDir}" \
+                        --prefix PATH : "${lib.makeBinPath [ bash coreutils which gawk psutils ]}"
+    '';
 
   outputHash = lib.fakeSha256;
   outputHashAlgo = "sha256";
