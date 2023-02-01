@@ -12,6 +12,9 @@
 			(system: rec {
 				legacyPackages = import nixpkgs {inherit system;};
 				defaultPackage = legacyPackages.callPackage ./default.nix { jdk = legacyPackages.jdk11; };
+        packages = {
+          oozie = legacyPackages.callPackage ./oozie.nix { jdk = legacyPackages.jdk11; };
+        };
 				checks = {
 					standalone-tests = import ./test.nix {
 						makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
