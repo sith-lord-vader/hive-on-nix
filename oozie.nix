@@ -46,12 +46,18 @@ rec {
       untarDir = "${pname}-${version}";
     in
     ''
+          find . -type f \
+      -name \*.lastUpdated -or \
+      -name resolver-status.properties -or \
+      -name _remote.repositories \
+      -delete
+
       		mkdir $out
-          mv * $out/
+          cp * $out/
 
     '';
 
-  outputHash = "sha256-5aEUBluP+kV9w8fb831eeuRV3wVWObbECI6rxfF+3fM=";
+  outputHash = "sha256-+KFySNae1AByu82D08zWbUcfOeF0y1Xt+CDSp+L8nL4=";
   outputHashAlgo = "sha256";
   outputHashMode = "recursive";
 
