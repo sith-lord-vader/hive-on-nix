@@ -39,7 +39,8 @@ rec {
   buildPhase = ''
     patchShebangs ./bin
     ./bin/mkdistro.sh -DskipTests -Dhadoop-version="3.3.1" \
-    -Djava.class.path="$(${hadoop}/bin/hadoop classpath)"
+    -Djava.class.path="$(${hadoop}/bin/hadoop classpath)" \
+    -Dmaven.repo.local=$out
   '';
   installPhase =
     let
@@ -52,8 +53,9 @@ rec {
       -name _remote.repositories \
       -delete
 
-      		mkdir $out
-          cp -r ./{distro,target} $out/
+      		# mkdir $out
+          # cp -r ./target $out/
+          # cp -r ./distro/target $out/
 
     '';
 
