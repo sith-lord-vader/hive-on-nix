@@ -47,7 +47,7 @@ rec {
       untarDir = "${pname}-${version}";
     in
     ''
-          find . -type f \
+          find $out -type f \
       -name \*.lastUpdated -or \
       -name resolver-status.properties -or \
       -name _remote.repositories \

@@ -124,6 +124,7 @@ let
 
 		"yarn.nodemanager.principal" = "yarn/_HOST@TEST.REALM";
 		"yarn.nodemanager.keytab" = "/var/security/keytab/nm.service.keytab";
+    "yarn.resourcemanager.scheduler.class" = "org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler";
 	};
 
 	
@@ -381,6 +382,16 @@ start_all()
 kerb.succeed("kdb5_util create -r \"TEST.REALM\" -P qwe -s")
 kerb.systemctl("restart kadmind.service kdc.service")
 kerb.wait_for_unit("kadmind.service")
+
+zk_nodes =  [zk ]
+nn_nodes = [ nn1 nn2  ]
+jn_nodes = [jn1]
+dn_nodes = [dn1 dn2]
+yarn_nodes = [ rm1 nm1]
+hive_nodes = [hiveserver]
+all_nodes = zk_nodes ++ nn_nodes ++ jn_nodes ++dn_nodes ++ yarn_nodes ++ hiveserver
+
+
 kerb.succeed("kadmin.local -q \"addprinc -pw abc zookeeper/zk\"")
 kerb.succeed("kadmin.local -q \"addprinc -pw abc hdfs/nn1\"")
 kerb.succeed("kadmin.local -q \"addprinc -pw abc hdfs/nn2\"")
@@ -396,6 +407,14 @@ zk.wait_for_unit("network.target")
 jn1.wait_for_unit("network.target")
 nn1.wait_for_unit("network.target")
 dn1.wait_for_unit("network.target")
+
+
+# TODO finish this
+def cert_init(node,node_type,principal,user):
+    node.succeed("kadmin -p "+principal+" -w \"abc\" -q \"ktadd -k /var/security/keytab/"+node_type+".service.keytab "+principal+"\"")
+    node.copy_from_host(source="${./minica/nn1/keystore.jks}",target="/var/security/keystore.jks")
+    node.succeed("chown -R "+user+" /var/security")
+
 
 
 nn1.succeed("kadmin -p hdfs/nn1 -w \"abc\" -q \"ktadd -k /var/security/keytab/nn.service.keytab hdfs/nn1\"")
@@ -443,19 +462,18 @@ nm1.succeed("chgrp -R hadoop /var/security")
 
 
 zk.wait_for_unit("zookeeper")
-zk.wait_for_unit("zookeeper")
-jn1.wait_for_unit("hdfs-journalnode")
-
 zk.wait_for_open_port(2181)
+
+
+jn1.wait_for_unit("hdfs-journalnode")
 jn1.wait_for_open_port(8481) # one jn might be problem
 jn1.wait_for_open_port(8485)
 
 
+
 # Namenodes must be stopped before initializing the cluster
-nn1.succeed("systemctl stop hdfs-namenode")
-nn2.succeed("systemctl stop hdfs-namenode")
-nn1.succeed("systemctl stop hdfs-zkfc")
-nn2.succeed("systemctl stop hdfs-zkfc")
+[nn.succeed("systemctl stop hdfs-namenode") for nn in nn_nodes]
+[nn.succeed("systemctl stop hdfs-zkfc") for nn in nn_nodes]
 
 # Initialize zookeeper for failover controller
 nn1.succeed("kinit -k -t /var/security/keytab/nn.service.keytab hdfs/nn1")
@@ -463,32 +481,27 @@ nn1.succeed("hdfs zkfc -formatZK 2>&1 | systemd-cat")
 
 # Format NN1 and start it
 nn1.succeed("hadoop namenode -format -nonInteractive 2>&1 | systemd-cat")
-
 nn1.succeed("chown -R hdfs /var/hadoop")
 nn1.succeed("chgrp -R hadoop /var/hadoop")
 
 nn1.succeed("systemctl start hdfs-namenode.service")
-# nn1.wait_for_open_port(9871)
 nn1.wait_for_open_port(8022)
 nn1.wait_for_open_port(8020)
 
 
 # Bootstrap NN2 from NN1 and start it
 nn2.succeed("hdfs namenode -bootstrapStandby 2>&1 | systemd-cat")
-
 nn2.succeed("chown -R hdfs /var/hadoop")
 nn2.succeed("chgrp -R hadoop /var/hadoop")
-
-
 nn2.succeed("systemctl start hdfs-namenode")
-# nn2.wait_for_open_port(9871)
 nn2.wait_for_open_port(8022)
 nn2.wait_for_open_port(8020)
+
+
 nn1.succeed("netstat -tulpne | systemd-cat")
 
 # Start failover controllers
-nn1.succeed("systemctl start hdfs-zkfc")
-nn2.succeed("systemctl start hdfs-zkfc")
+[nn.succeed("systemctl start hdfs-zkfc") for nn in nn_nodes]
 
 # DN 
 dn1.wait_for_unit("hdfs-datanode")
@@ -498,15 +511,11 @@ nn1.succeed("curl --cacert ${./minica/minica.pem} -f https://nn1:9871")
 dn1.succeed("curl --cacert ${./minica/minica.pem} -f https://dn1:9865")
 
 
-rm1.wait_for_unit("network.target")
-nm1.wait_for_unit("network.target")
+[n.wait_for_unit("network.target") for n in yarn_nodes]
 
 rm1.wait_for_unit("yarn-resourcemanager")
-# rm1.wait_for_open_port(8088)
-
 nm1.wait_for_unit("yarn-nodemanager")
-# nm1.wait_for_open_port(8042)
-# nm1.wait_for_open_port(8040)
+
 nm1.succeed("kinit -k -t /var/security/keytab/nm.service.keytab yarn/nm1")
 nm1.wait_until_succeeds("yarn node -list | grep Nodes:1")
 nm1.succeed("yarn node -list | systemd-cat")

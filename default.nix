@@ -6,10 +6,10 @@
 stdenv.mkDerivation rec {
 
 	pname = "hive";
-	version = "2.3.9";
+	version = "3.1.1";
 	src = fetchurl {
 		url = "mirror://apache/hive/hive-${version}/apache-hive-${version}-bin.tar.gz";
-		sha256 = "sha256-GZYyfJZnLn6o6qj8Y5csdbwJUoejJhLlReDlHBYiy1w=";
+		sha256 = "sha256-dNsYWcOvT805Nzxsqpn/TH443/O8uaGYt0V8Y7fjwFQ=";
 	};
 	
 	buildInputs = [ mysql_jdbc ];
