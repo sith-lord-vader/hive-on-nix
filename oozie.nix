@@ -38,7 +38,7 @@ rec {
   nativeBuildInputs = [ jdk makeWrapper ];
   buildPhase = ''
     patchShebangs ./bin
-    ./bin/mkdistro.sh -DskipTests
+    ./bin/mkdistro.sh -DskipTests -Puber -Dhadoop-version="3.3.1" -Dhive.version="3.1.1" -Dhbase-version="2.4.11"
   '';
   installPhase =
     let
