@@ -35,10 +35,11 @@ rec {
   };
 
   buildInputs = [ mavenOld ];
-  nativeBuildInputs = [ jdk makeWrapper ];
+  nativeBuildInputs = [ jdk makeWrapper hadoop ];
   buildPhase = ''
     patchShebangs ./bin
-    ./bin/mkdistro.sh -DskipTests -Puber -Dhadoop-version="3.3.1" -Dhive.version="3.1.1" -Dhbase-version="2.4.11"
+    HADOOP_HOME="${hadoop}/lib/${hadoop.untarDir}"
+    ./bin/mkdistro.sh -DskipTests -Dhadoop-version="3.3.1" -Dhive.version="3.1.1" -Dhbase-version="2.4.11" -classpath
   '';
   installPhase =
     let
