@@ -39,7 +39,9 @@ rec {
   buildPhase = ''
     patchShebangs ./bin
     HADOOP_HOME="${hadoop}/lib/${hadoop.untarDir}"
-    ./bin/mkdistro.sh -DskipTests -Dhadoop-version="3.3.1" -Dhive.version="3.1.1" -Dhbase-version="2.4.11" -classpath
+    ./bin/mkdistro.sh -DskipTests -Dhadoop-version="3.3.1" \
+    -Dhive.version="3.1.1" -Dhbase-version="2.4.11" \
+    -Djava.class.path="${hadoop}/lib/${hadoop.untarDir}"
   '';
   installPhase =
     let
