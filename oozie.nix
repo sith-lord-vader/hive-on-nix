@@ -1,34 +1,64 @@
-{stdenv, fetchurl, jdk, makeWrapper, hadoop
-, bash, coreutils, which, gawk, psutils, mysql_jdbc
+{ stdenv
+, fetchurl
+, jdk
+, makeWrapper
+, hadoop
+, maven
+, bash
+, coreutils
+, which
+, gawk
+, psutils
+, mysql_jdbc
 , lib
 }:
 
-stdenv.mkDerivation rec {
 
-	pname = "oozie";
-	version = "5.2.1";
-	src = fetchurl {
-		url = "mirror://apache/oozie/${version}/oozie-${version}.tar.gz";
-		sha256 = lib.fakeSha256;
-	};
-	
-	buildInputs = [ maven ];
-	nativeBuildInputs = [ jdk makeWrapper ];
-	buildPhase = ''
-  bin/mkdistro.sh
+let mavenOld = maven.overrideAttrs
+  (oldAttrs: rec {
+    version = "3.6.3";
+    src = fetchurl {
+      url = "mirror://apache/maven/maven-3/${version}/binaries/${oldAttrs.pname}-${version}-bin.tar.gz";
+      sha256 = "sha256-Jq2R11GzqaUwh676dD9OFqF3QdORWyGc90ESv4ekOMU=";
+    };
+  });
+
+in
+stdenv.mkDerivation
+rec {
+
+  pname = "oozie";
+  version = "5.2.1";
+  src = fetchurl {
+    url = "mirror://apache/oozie/${version}/oozie-${version}.tar.gz";
+    sha256 = "sha256-vOjCn3CsVseO/9nkCZbtrnDMa0b/rVRv8GJ0fLiDjaU=";
+  };
+
+  buildInputs = [ mavenOld ];
+  nativeBuildInputs = [ jdk makeWrapper ];
+  buildPhase = ''
+    patchShebangs ./bin
+    ./bin/mkdistro.sh 
   '';
-	installPhase = let
-		untarDir = "${pname}-${version}";
-	in ''
-        # mkdir -p $out/{share,bin}
-				mkdir $out
-        mv * $out/
+  installPhase =
+    let
+      untarDir = "${pname}-${version}";
+    in
+    ''
+              # mkdir -p $out/{share,bin}
+      				mkdir $out
+              mv * $out/
 
-				for n in $(find $out{,/hcatalog}/bin -type f ! -name "*.*"); do
-          wrapProgram "$n" \
-            --set-default JAVA_HOME "${jdk.home}" \
-						--set-default HIVE_HOME "$out" \
-						--set-default HADOOP_HOME "${hadoop}/lib/${hadoop.untarDir}" \
-            --prefix PATH : "${lib.makeBinPath [ bash coreutils which gawk psutils ]}"
-	'';
+      				for n in $(find $out{,/hcatalog}/bin -type f ! -name "*.*"); do
+                wrapProgram "$n" \
+                  --set-default JAVA_HOME "${jdk.home}" \
+      						--set-default HIVE_HOME "$out" \
+      						--set-default HADOOP_HOME "${hadoop}/lib/${hadoop.untarDir}" \
+                  --prefix PATH : "${lib.makeBinPath [ bash coreutils which gawk psutils ]}"
+      	'';
+
+  outputHash = lib.fakeSha256;
+  outputHashAlgo = "sha256";
+  outputHashMode = "recursive";
+
 }
