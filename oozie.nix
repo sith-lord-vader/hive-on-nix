@@ -51,7 +51,7 @@ rec {
 
     '';
 
-  outputHash = lib.fakeSha256;
+  outputHash = "sha256-5aEUBluP+kV9w8fb831eeuRV3wVWObbECI6rxfF+3fM=";
   outputHashAlgo = "sha256";
   outputHashMode = "recursive";
 
