@@ -53,7 +53,7 @@ rec {
       -delete
 
       		mkdir $out
-          cp * $out/
+          cp -r ./{distro,target} $out/
 
     '';
 
