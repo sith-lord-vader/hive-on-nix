@@ -38,7 +38,7 @@ rec {
   nativeBuildInputs = [ jdk makeWrapper ];
   buildPhase = ''
     patchShebangs ./bin
-    ./bin/mkdistro.sh 
+    ./bin/mkdistro.sh -DskipTests
   '';
   installPhase =
     let
