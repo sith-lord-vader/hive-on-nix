@@ -193,22 +193,22 @@ ${pkgs.coreutils}/bin/chown hive:hadoop /var/run/hive || true
                   };
                 };
 
-                # hivemetastore = {
-                #   wantedBy = [ "multi-user.target" ];
-                #   after = [ "network.target" "hive-init.service" ];
-                #   environment =
-                #     {
-                #       HADOOP_CONF_DIR = "/etc/hadoop-conf";
-                #     };
-                #   script = ''
-                #   schematool -dbType mysql -initSchema -ifNotExists
-                #   hive --service metastore --hiveconf hive.root.logger=INFO,console
-                #   '';
-                #   path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
-                #   serviceConfig = {
-                #     User = "hive";
-                #   };
-                # };
+                hivemetastore = {
+                  wantedBy = [ "multi-user.target" ];
+                  after = [ "network.target" "hive-init.service" ];
+                  environment =
+                    {
+                      HADOOP_CONF_DIR = "/etc/hadoop-conf";
+                    };
+                  script = ''
+                  schematool -dbType mysql -initSchema -ifNotExists
+                  hive --service metastore --hiveconf hive.root.logger=INFO,console
+                  '';
+                  path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
+                  serviceConfig = {
+                    User = "hive";
+                  };
+                };
               };
             })
           ];
