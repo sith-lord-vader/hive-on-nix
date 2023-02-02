@@ -201,7 +201,6 @@ ${pkgs.coreutils}/bin/chown hive:hadoop /var/run/hive || true
                       HADOOP_CONF_DIR = "/etc/hadoop-conf";
                     };
                   script = ''
-                  schematool -dbType mysql -initSchema -ifNotExists
                   hive --service metastore --hiveconf hive.root.logger=INFO,console
                   '';
                   path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
