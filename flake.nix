@@ -56,11 +56,12 @@
         {
 
           options.services.hadoop.hiveserver = {
-            enable = mkEnableOption {
-              default = false;
-              description = "enable hiveserver";
-            };
+            enable = mkEnableOption "enable hiveserver";
 
+            metastore = {
+              enable = mkEnableOption "enable metastore. not actually used, right now metastore is active wherever server is.";
+              openFirewall = mkEnableOption "open firewall ports for metastore";
+            };
             openFirewall = mkEnableOption "open firewall ports for hiveserver webUI and JDBC connection.";
 
             hiveSite = mkOption {
@@ -108,7 +109,7 @@
 
             (mkIf cfg.enable {
               environment.systemPackages = [ self.defaultPackage.${config.nixpkgs.system} ];
-              networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [ 10000 10001 10002 14000 ];
+              networking.firewall.allowedTCPPorts = (mkIf cfg.openFirewall [ 10000 10001 10002 14000 ]) // (mkIf cfg.metastore.openFirewall [ 9083 ]);
 
               users.users.hive = {
                 description = "hive user";
@@ -134,37 +135,51 @@
                     '';
                   in
                   [
-                    (pkgs.runCommand "hive-conf" { } (with cfg; ''
-                      mkdir -p $out/
-                      cp ${siteXml "hive-site.xml" (hiveSiteDefault // hiveSite)}/* $out/
-                    ''))
+                    (pkgs.runCommand "hive-conf" { }
+                      (with cfg; ''
+                        mkdir -p $out/
+                        cp ${siteXml "hive-site.xml" (hiveSiteDefault // hiveSite)}/* $out/
+                      ''))
                   ];
 
                 gatewayRole.enable = true;
               };
-
               systemd.services = {
                 hive-init = {
                   wantedBy = [ "multi-user.target" ];
                   path = [ pkgs.hadoop config.krb5.kerberos ];
                   script = with pkgs; ''
-                    kinit -k -t /var/security/keytab/hiveserver.service.keytab hive/hiveserver
+                        kinit - k - t /var/security/keytab/hiveserver.service.keytab hive/hiveserver
 
-                    hadoop fs -mkdir -p    /home/hive || true
-                    hadoop fs -chown hive:hadoop    /home/hive || true
+                        hadoop
+                        fs - mkdir - p /home/hive || true
+                        hadoop
+                        fs - chown hive:hadoop /home/hive || true
 
-                    hadoop fs -mkdir       /tmp || true
-                    hadoop fs -chown hdfs:hadoop   /tmp || true
-                    hadoop fs -chmod g+w   /tmp || true
+                        hadoop
+                        fs - mkdir /tmp || true
+                        hadoop
+                        fs - chown hdfs:hadoop /tmp || true
+                        hadoop
+                        fs - chmod g + w /tmp || true
 
-                    hadoop fs -mkdir -p    /user/hive || true
-                    hadoop fs -chown hive:hadoop   /user/hive || true
+                        hadoop
+                        fs - mkdir - p /user/hive || true
+                        hadoop
+                        fs - chown hive:hadoop /user/hive || true
 
-                    hadoop fs -mkdir    /user/hive/warehouse || true
-                    hadoop fs -chmod g+w   /user/hive/warehouse || true
+                        hadoop
+                        fs - mkdir /user/hive/warehouse || true
+                        hadoop
+                        fs - chmod g + w /user/hive/warehouse || true
 
-                    ${pkgs.coreutils}/bin/mkdir /var/run/hive || true
-                    ${pkgs.coreutils}/bin/chown hive:hadoop /var/run/hive || true
+                        ${
+                      pkgs.coreutils}
+                    /bin/mkdir
+                    /var/run/hive || true
+                    ${pkgs.coreutils}/bin/chown
+                    hive:hadoop
+                    /var/run/hive || true
 
                   '';
                   serviceConfig = {
@@ -182,8 +197,24 @@
                       HADOOP_CONF_DIR = "/etc/hadoop-conf";
                     };
                   script = ''
-                    											hiveserver2 --hiveconf hive.root.logger=INFO,console
-                    										'';
+                    hiveserver2 --hiveconf hive.root.logger=INFO,console
+                  '';
+                  path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
+                  serviceConfig = {
+                    User = "hive";
+                  };
+                };
+
+                hivemetastore = {
+                  wantedBy = [ "multi-user.target" ];
+                  after = [ "network.target" "hive-init.service" ];
+                  environment =
+                    {
+                      HADOOP_CONF_DIR = "/etc/hadoop-conf";
+                    };
+                  script = ''
+                    hive --service metastore --hiveconf hive.root.logger=INFO,console
+                  '';
                   path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
                   serviceConfig = {
                     User = "hive";
@@ -192,7 +223,7 @@
               };
             })
           ];
-        }
-      ;
+        };
     };
 }
+
