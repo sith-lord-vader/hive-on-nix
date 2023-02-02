@@ -21,7 +21,7 @@ stdenv.mkDerivation rec {
         # mkdir -p $out/{share,bin,lib}
 				mkdir $out
         mv * $out/
-        cp ${mysql_jdbc}/share/java/mysql-connector-java.jar $out/lib
+        cp ${mysql_jdbc}/share/java/mysql-connector-java-j.jar $out/lib
 
 				for n in $(find $out{,/hcatalog}/bin -type f ! -name "*.*"); do
           wrapProgram "$n" \
@@ -30,7 +30,7 @@ stdenv.mkDerivation rec {
 						--set-default HADOOP_HOME "${hadoop}/lib/${hadoop.untarDir}" \
             --prefix PATH : "${lib.makeBinPath [ bash coreutils which gawk psutils ]}" \
 						--prefix JAVA_LIBRARY_PATH : "${lib.makeLibraryPath [ mysql_jdbc ]}" \
-						--prefix HIVE_AUX_JARS_PATH : "${mysql_jdbc}/share/java/mysql-connector-java.jar"
+						--prefix HIVE_AUX_JARS_PATH : "${mysql_jdbc}/share/java/mysql-connector-java-j.jar"
 				done
 	'';
 }
