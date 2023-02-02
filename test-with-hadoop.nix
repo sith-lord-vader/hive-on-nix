@@ -64,7 +64,7 @@ experimental-features = nix-command flakes
 					"javax.jdo.option.ConnectionPassword" = "123456";
 
 					"hive.server2.authentication" = "NOSASL";
-
+          "hive.metastore.uris" = "thrift://hiveserver:9083";
 
 				};
 			};

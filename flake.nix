@@ -139,6 +139,7 @@
                       (with cfg; ''
                         mkdir -p $out/
                         cp ${siteXml "hive-site.xml" (hiveSiteDefault // hiveSite)}/* $out/
+                        cp ${siteXml "metastore-site.xml" (hiveSiteDefault // hiveSite)}/* $out/
                       ''))
                   ];
 
