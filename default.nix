@@ -12,8 +12,8 @@ stdenv.mkDerivation rec {
 		sha256 = "sha256-dNsYWcOvT805Nzxsqpn/TH443/O8uaGYt0V8Y7fjwFQ=";
 	};
 	
-	buildInputs = [ mysql_jdbc ];
-	nativeBuildInputs = [ jdk makeWrapper ];
+	buildInputs = [ ];
+	nativeBuildInputs = [ mysql_jdbc jdk makeWrapper ];
 	
 	installPhase = let
 		untarDir = "${pname}-${version}";
