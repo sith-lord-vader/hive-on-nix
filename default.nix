@@ -18,9 +18,10 @@ stdenv.mkDerivation rec {
 	installPhase = let
 		untarDir = "${pname}-${version}";
 	in ''
-        # mkdir -p $out/{share,bin}
+        # mkdir -p $out/{share,bin,lib}
 				mkdir $out
         mv * $out/
+        cp ${mysql_jdbc}/share/java/mysql-connector-java.jar $out/lib
 
 				for n in $(find $out{,/hcatalog}/bin -type f ! -name "*.*"); do
           wrapProgram "$n" \
