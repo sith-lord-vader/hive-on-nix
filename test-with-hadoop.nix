@@ -131,7 +131,7 @@ sudo -u hdfs hadoop fs -mkdir    /user/hive/warehouse  && \
 sudo -u hdfs hadoop fs -chmod g+w   /user/hive/warehouse 
 """)
 
-hiveserver.execute("schematool -dbType mysql -initSchema")
+hiveserver.execute("schematool -dbType mysql -initSchema -ifNotExists")
 hiveserver.wait_for_unit("mysql.service")
 hiveserver.wait_for_unit("hiveserver.service")
 hiveserver.wait_for_open_port(10000)
