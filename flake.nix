@@ -12,7 +12,7 @@
     utils.lib.eachSystem [ utils.lib.system.x86_64-linux ] # utils.lib.defaultSystems
       (system: rec {
         legacyPackages = import nixpkgs { inherit system; };
-        defaultPackage = legacyPackages.callPackage ./default.nix { jdk = legacyPackages.jdk11; };
+        defaultPackage = legacyPackages.callPackage ./default.nix { jdk = legacyPackages.jdk8; }; # TODO make jdk version configurable
         packages = {
           oozie = legacyPackages.callPackage ./oozie.nix { jdk = legacyPackages.jdk8; };
         };
