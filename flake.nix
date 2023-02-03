@@ -80,6 +80,9 @@
             hiveSiteDefault = mkOption {
               default = {
                 "hive.server2.enable.doAs" = "false";
+                # https://issues.apache.org/jira/browse/HIVE-19740
+                "hadoop.proxyuser.hive.hosts" = "HS2_HOST";
+                "hadoop.proxyuser.hive.groups" = "*";
               };
               type = types.attrsOf types.anything;
               example = literalExpression ''
