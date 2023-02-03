@@ -30,7 +30,7 @@ stdenv.mkDerivation rec {
 						--set-default HADOOP_HOME "${hadoop}/lib/${hadoop.untarDir}" \
             --prefix PATH : "${lib.makeBinPath [ bash coreutils which gawk psutils ]}" \
 						--prefix JAVA_LIBRARY_PATH : "${lib.makeLibraryPath [ mysql_jdbc ]}" \
-						--prefix HIVE_AUX_JARS_PATH : "${mysql_jdbc}/share/java/mysql-connector-j.jar"
+						--suffix HIVE_AUX_JARS_PATH , "${mysql_jdbc}/share/java/mysql-connector-j.jar"
 				done
 	'';
 }
