@@ -83,6 +83,7 @@
                 # https://issues.apache.org/jira/browse/HIVE-19740
                 "hadoop.proxyuser.hive.hosts" = "HS2_HOST";
                 "hadoop.proxyuser.hive.groups" = "*";
+                "hive.metastore.event.db.notification.api.auth" = false;
               };
               type = types.attrsOf types.anything;
               example = literalExpression ''
