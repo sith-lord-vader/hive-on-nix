@@ -169,6 +169,7 @@
                     sudo -u hdfs hadoop fs -chown hive:hadoop /user/hive || true
 
                     sudo -u hdfs hadoop fs -mkdir /user/hive/warehouse || true
+                    sudo -u hdfs hadoop fs -chown hive:hadoop /user/hive/warehouse || true
                     sudo -u hdfs hadoop fs -chmod g+w /user/hive/warehouse || true
 
                     ${pkgs.coreutils}/bin/mkdir /var/run/hive || true
