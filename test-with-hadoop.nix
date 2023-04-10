@@ -129,13 +129,8 @@ sudo -u hdfs hadoop fs -chmod g+w   /user/hive/warehouse
 """)
 
 hiveserver.execute("schematool -dbType mysql -initSchema -ifNotExists")
-hiveserver.wait_for_unit("mysql.service")
-hiveserver.wait_for_unit("hiveserver.service")
-hiveserver.wait_for_open_port(10000)
+prime(hiveserver, ["mysql.service", "hiveserver.service"], [10000], "beeline -u \"jdbc:hive2://hiveserver:10000/default;auth=noSasl\" -e \"SHOW TABLES;\"")
 
-hiveserver.succeed(
-"beeline -u \"jdbc:hive2://hiveserver:10000/default;auth=noSasl\" -e \"SHOW TABLES;\""
-)
   '';
 } {
   inherit pkgs;
