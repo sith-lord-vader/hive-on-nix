@@ -8,49 +8,35 @@
     utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, utils }:
-    utils.lib.eachSystem [ utils.lib.system.x86_64-linux ] # utils.lib.defaultSystems
-      (system: rec {
-        legacyPackages = import nixpkgs { inherit system; };
-        defaultPackage = legacyPackages.callPackage ./default.nix { jdk = legacyPackages.jdk8; }; # TODO make jdk version configurable
+  outputs = { self, nixpkgs, utils }: utils.lib.eachDefaultSystem
+    (system:
+      let pkgs = import nixpkgs { inherit system; };
+      in
+      rec {
+        defaultPackage = packages.hive;
         packages = {
-          oozie = legacyPackages.callPackage ./oozie.nix { jdk = legacyPackages.jdk8; };
+          hive = pkgs.callPackage ./default.nix { jdk = pkgs.jdk8; }; # TODO make jdk version configurable
+          # oozie = pkgs.callPackage ./oozie.nix { jdk = pkgs.jdk8; }; not packaging oozie. it isn't even compatible with hadoop 3.
         };
-        checks = {
-          standalone-tests = import ./test.nix {
+        checks =
+          let test = name: file: import file {
+            inherit pkgs;
             makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
-            pkgs = legacyPackages;
             flake = self;
             package = defaultPackage;
           };
-
-          hadoop-tests = import ./full-hadoop-test.nix {
-            makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
-            pkgs = legacyPackages;
-            flake = self;
-            package = defaultPackage;
-
+          in
+          pkgs.lib.mapAttrs test {
+            standalone-tests = ./test.nix;
+            hadoop-tests = ./full-hadoop-test.nix;
+            hadoop-integration-tests = ./test-with-hadoop.nix;
+            kerberos-integration-tests = ./test-with-kerberos.nix;
           };
-
-          hadoop-integration-tests = import ./test-with-hadoop.nix {
-            makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
-            pkgs = legacyPackages;
-            flake = self;
-            package = defaultPackage;
-          };
-
-          kerberos-integration-tests = import ./test-with-kerberos.nix {
-            makeTest = import (nixpkgs + "/nixos/tests/make-test-python.nix");
-            pkgs = legacyPackages;
-            flake = self;
-            package = defaultPackage;
-          };
-        };
 
       }) // {
-      nixosModules = {
-        hiveserver = ./hiveserver-module.nix;
-      };
+    nixosModules = {
+      hiveserver = ./hiveserver-module.nix;
     };
+  };
 }
 
