@@ -11,7 +11,7 @@ makeTest {
   name = "hive-with-hadoop";
 	nodes = {
 		namenode = {pkgs, ...}: {
-			imports = [flake.nixosModule];
+			imports = [flake.nixosModules.hiveserver];
 			services.hadoop.hiveserver.gatewayRole.enable = true;
       services.hadoop = {
         package = pkgs.hadoop;

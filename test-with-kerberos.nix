@@ -167,7 +167,7 @@ makeTest {
     };
 
 		nn1 = {pkgs, ...}: {
-			imports = [flake.nixosModule];
+			imports = [flake.nixosModules.hiveserver];
 			inherit krb5;
 			services.hadoop.hiveserver.gatewayRole.enable = true;
 			networking.hosts = {

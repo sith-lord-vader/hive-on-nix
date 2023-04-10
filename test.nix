@@ -7,7 +7,7 @@
 makeTest {
   name = "hive";
   nodes.machine = {...}: {
-		imports = [flake.nixosModule];
+		imports = [flake.nixosModules.hiveserver];
 		services.hiveserver.enable = true;
 	};
 
