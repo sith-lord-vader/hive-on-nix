@@ -1,25 +1,23 @@
-{ flake  ? builtins.getFlake (toString ./.)
+{ flake ? builtins.getFlake (toString ./.)
 , pkgs ? flake.inputs.nixpkgs.legacyPackages.${builtins.currentSystem}
 , makeTest ? pkgs.callPackage (flake.inputs.nixpkgs + "/nixos/tests/make-test-python.nix")
 , package ? flake.defaultPackage.${builtins.currentSystem}
 }:
 
-
-
-
-makeTest {
+makeTest
+{
   name = "hive-with-hadoop";
-	nodes = {
-		namenode = {pkgs, ...}: {
-			imports = [flake.nixosModules.hiveserver];
-			services.hadoop.hiveserver.gatewayRole.enable = true;
+  nodes = {
+    namenode = { pkgs, ... }: {
+      imports = [ flake.nixosModules.hiveserver ];
+      services.hadoop.hiveserver.gatewayRole.enable = true;
       services.hadoop = {
         package = pkgs.hadoop;
         hdfs = {
           namenode = {
             enable = true;
             formatOnInit = true;
-						openFirewall = true;
+            openFirewall = true;
           };
         };
         coreSite = {
@@ -29,17 +27,17 @@ makeTest {
         };
       };
     };
-		
-    datanode = {pkgs, ...}: {
-			imports = [flake.nixosModule];
-			services.hadoop.hiveserver.gatewayRole.enable = true;
+
+    datanode = { pkgs, ... }: {
+      imports = [ flake.nixosModule ];
+      services.hadoop.hiveserver.gatewayRole.enable = true;
 
       services.hadoop = {
         package = pkgs.hadoop;
         hdfs.datanode = {
-					enable = true;
-					openFirewall = true;
-				};
+          enable = true;
+          openFirewall = true;
+        };
         coreSite = {
           "fs.defaultFS" = "hdfs://namenode:8020";
           "hadoop.proxyuser.httpfs.groups" = "*";
@@ -48,55 +46,55 @@ makeTest {
       };
     };
 
-		
-		hiveserver = {...}: {
-			imports = [flake.nixosModule];
-			environment.systemPackages = with pkgs; [ tmux htop ];
-			nix.extraOptions = ''
-experimental-features = nix-command flakes
-'';
-			services.hadoop.hiveserver = {
-				enable = true;
-				hiveSite = {
-					"javax.jdo.option.ConnectionURL" = "jdbc:mysql://localhost/hive?createDatabaseIfNotExist=true";
-					"javax.jdo.option.ConnectionDriverName" = "com.mysql.jdbc.Driver";
-					"javax.jdo.option.ConnectionUserName" = "hive";
-					"javax.jdo.option.ConnectionPassword" = "123456";
 
-					"hive.server2.authentication" = "NOSASL";
+    hiveserver = { ... }: {
+      imports = [ flake.nixosModule ];
+      environment.systemPackages = with pkgs; [ tmux htop ];
+      nix.extraOptions = ''
+        experimental-features = nix-command flakes
+      '';
+      services.hadoop.hiveserver = {
+        enable = true;
+        hiveSite = {
+          "javax.jdo.option.ConnectionURL" = "jdbc:mysql://localhost/hive?createDatabaseIfNotExist=true";
+          "javax.jdo.option.ConnectionDriverName" = "com.mysql.jdbc.Driver";
+          "javax.jdo.option.ConnectionUserName" = "hive";
+          "javax.jdo.option.ConnectionPassword" = "123456";
+
+          "hive.server2.authentication" = "NOSASL";
           "hive.metastore.uris" = "thrift://hiveserver:9083";
 
-				};
-			};
+        };
+      };
 
-			services.mysql = {
-				enable = true;
-				package = pkgs.mariadb;
-				# ensureUsers = [
-				# 	{
-				# 		name = "hdfs";
-				# 		ensurePermissions ={
-				# 			"*.*" = "ALL PRIVILEGES";
-				# 		};
-				# 	}
-				# ];
+      services.mysql = {
+        enable = true;
+        package = pkgs.mariadb;
+        # ensureUsers = [
+        # 	{
+        # 		name = "hdfs";
+        # 		ensurePermissions ={
+        # 			"*.*" = "ALL PRIVILEGES";
+        # 		};
+        # 	}
+        # ];
 
-				initialScript = pkgs.writeText "mysql-init" ''
-CREATE USER IF NOT EXISTS 'hive'@'localhost' IDENTIFIED BY '123456';
-GRANT ALL PRIVILEGES ON *.* TO 'hive'@'localhost';
-'';
-			};
-			
-			services.hadoop = {
-				package = pkgs.hadoop;
-				coreSite = {
-					"fs.defaultFS" = "hdfs://namenode:8020";
-					"hadoop.proxyuser.httpfs.groups" = "*";
-					"hadoop.proxyuser.httpfs.hosts" = "*";
-				};
-			};
-		};
-	};
+        initialScript = pkgs.writeText "mysql-init" ''
+          CREATE USER IF NOT EXISTS 'hive'@'localhost' IDENTIFIED BY '123456';
+          GRANT ALL PRIVILEGES ON *.* TO 'hive'@'localhost';
+        '';
+      };
+
+      services.hadoop = {
+        package = pkgs.hadoop;
+        coreSite = {
+          "fs.defaultFS" = "hdfs://namenode:8020";
+          "hadoop.proxyuser.httpfs.groups" = "*";
+          "hadoop.proxyuser.httpfs.hosts" = "*";
+        };
+      };
+    };
+  };
 
   testScript = ''
 
@@ -132,7 +130,8 @@ hiveserver.execute("schematool -dbType mysql -initSchema -ifNotExists")
 prime(hiveserver, ["mysql.service", "hiveserver.service"], [10000], "beeline -u \"jdbc:hive2://hiveserver:10000/default;auth=noSasl\" -e \"SHOW TABLES;\"")
 
   '';
-} {
+}
+{
   inherit pkgs;
   inherit (pkgs) system;
 }
