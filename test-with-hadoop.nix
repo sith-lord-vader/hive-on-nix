@@ -99,25 +99,22 @@ GRANT ALL PRIVILEGES ON *.* TO 'hive'@'localhost';
 	};
 
   testScript = ''
+
+def prime(node, units, ports, test):
+    for unit in units:
+        node.wait_for_unit(unit)
+    for port in ports:
+        node.wait_for_open_port(port)
+    node.succeed(test)
+
 namenode.start()
 datanode.start()
-
-namenode.wait_for_unit("hdfs-namenode")
-namenode.wait_for_unit("network.target")
-namenode.wait_for_open_port(8020)
-namenode.wait_for_open_port(9870)
-
-datanode.wait_for_unit("hdfs-datanode")
-datanode.wait_for_unit("network.target")
-datanode.wait_for_open_port(9864)
-datanode.wait_for_open_port(9866)
-datanode.wait_for_open_port(9867)
-
 hiveserver.start()
 
-namenode.succeed("curl -f http://namenode:9870")
-datanode.succeed("curl -f http://datanode:9864")
+prime(namenode, ["hdfs-namenode", "network.target"], [8020,9870], "curl -f http://namenode:9870")
+prime(datanode, ["hdfs-namenode", "network.target"], [9864,9866,9867]"curl -f http://datanode:9864")
 
+# namenode init
 
 namenode.succeed("""
 sudo -u hdfs hadoop fs -mkdir -p    /home/hive && \
