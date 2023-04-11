@@ -36,6 +36,8 @@
       }) // {
     nixosModules = {
       hiveserver = ./hiveserver-module.nix;
+      kerberos = ./kerberos-module.nix;
+      hadoop-kerberos = ./hadoop-kerberos-module.nix;
     };
   };
 }
