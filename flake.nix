@@ -187,7 +187,7 @@
 									script = ''
 										hiveserver2 --hiveconf hive.root.logger=INFO,console
 									'';
-									path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
+									path = with pkgs; [ self.defaultPackage.${config.nixpkgs.system} sudo coreutils bash which gawk psutils ];
 									serviceConfig = {
 										User = "hive";
 									};
@@ -203,7 +203,7 @@
 									script = ''
 										hive --service metastore --hiveconf hive.root.logger=INFO,console
 									'';
-									path = [ pkgs.sudo self.defaultPackage.${config.nixpkgs.system} pkgs.coreutils ];
+									path = with pkgs; [ self.defaultPackage.${config.nixpkgs.system} sudo coreutils bash which gawk psutils ];
 									serviceConfig = {
 										User = "hive";
 									};
