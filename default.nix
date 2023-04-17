@@ -23,9 +23,9 @@ stdenv.mkDerivation rec {
         mv * $out/
         test -f ${mysql_jdbc}/share/java/mysql-connector-java.jar && \
          cp ${mysql_jdbc}/share/java/mysql-connector-java.jar $out/lib || \
-         cp ${mysql_jdbc}/share/java/mysql-connector-j.jar $out/lib || 
+         cp ${mysql_jdbc}/share/java/mysql-connector-j.jar $out/lib
 
-				for n in $(find $out{,/hcatalog}/bin -type f ! -name "*.*"); do
+	for n in $(find $out{,/hcatalog}/bin -type f ! -name "*.*"); do
           wrapProgram "$n" \
             --set-default JAVA_HOME "${jdk.home}" \
 						--set-default HIVE_HOME "$out" \
