@@ -105,10 +105,10 @@
 					config = mkMerge [
 
 						(mkIf cfg.gatewayRole.enable {
-							users.users.hive = {
+							users.users.${config.services.hadoop.hiveserver.user} = {
 								description = "hive user";
 								isSystemUser = true;
-								group = "hadoop";
+								group = config.services.hadoop.hiveserver.group;
 							};
 							environment.systemPackages = [
 								self.defaultPackage.${config.nixpkgs.system}
@@ -121,24 +121,14 @@
 							];
 							networking.firewall.allowedTCPPorts = (mkIf cfg.openFirewall [ 10000 10001 10002 14000 ]) // (mkIf cfg.metastore.openFirewall [ 9083 ]);
 
-							users.users.hive = {
+							users.users.${config.services.hadoop.hiveserver.user} = {
 								description = "hive user";
 								isSystemUser = true;
-								group = "hadoop";
+								group = config.services.hadoop.hiveserver.group;
 							};
 
 							services.hadoop = {
 								extraConfDirs = let
-									indent = txt: let
-										lines = splitString "\n" txt;
-									in (
-										# unexpected chars in last line of multiline string
-										assert ( (replaceStrings ["\t"] [""] (last lines))  == "");
-										concatStringsSep "\n" (
-											map (line: substring (1 + (stringLength (last lines))) (stringLength line) line) lines
-										)
-									);
-
 									propertyXml = name: value: lib.optionalString (value != null) ''
                   <property>
                   	<name>${name}</name>
