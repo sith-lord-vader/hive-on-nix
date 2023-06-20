@@ -196,9 +196,7 @@
 								hiveserver = {
 									wantedBy = [ "multi-user.target" ];
 									after = [ "network.target" "hive-init.service" ];
-                  environment = {
-                    variables = { HADOOP_CONF_DIR = "/etc/hadoop-conf"; } // cfg.extraEnv;
-                  };
+                  environment = { HADOOP_CONF_DIR = "/etc/hadoop-conf"; } // cfg.extraEnv;
 									script = ''
 										hiveserver2 --hiveconf hive.root.logger=INFO,console
 									'';
