@@ -97,6 +97,14 @@
 								<link xlink:href="https://cwiki.apache.org/confluence/display/Hive/AdminManual+Configuration"/>
 							'';
 						};
+            extraEnv = mkOption {
+              default = {
+              };
+              type = types.attrsOf types.anything;
+              description = lib.mdDoc ''
+                Extra envs.
+              '';
+            };
 
 						gatewayRole.enable = mkEnableOption "gateway role for deploying hive configs to toher nodes";
 
@@ -189,6 +197,9 @@
 									wantedBy = [ "multi-user.target" ];
 									after = [ "network.target" "hive-init.service" ];
 									environment.HADOOP_CONF_DIR = "/etc/hadoop-conf";
+                  environment = {
+                    variables = cfg.extraEnv;
+                  }
 									script = ''
 										hiveserver2 --hiveconf hive.root.logger=INFO,console
 									'';
