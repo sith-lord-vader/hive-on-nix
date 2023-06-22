@@ -209,7 +209,7 @@
 								hivemetastore = {
 									wantedBy = [ "multi-user.target" ];
 									after = [ "network.target" "hive-init.service" ];
-									environment.HADOOP_CONF_DIR = "/etc/hadoop-conf";
+									environment = { HADOOP_CONF_DIR = "/etc/hadoop-conf"; } // cfg.extraEnv;
 									script = ''
 										hive --service metastore --hiveconf hive.root.logger=INFO,console
 									'';
